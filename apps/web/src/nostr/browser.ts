@@ -12,6 +12,10 @@ export const DEFAULT_RELAYS = import.meta.env.VITE_RELAY_URL
   : import.meta.env.PROD
     ? ["wss://relay.anchorman.lol", "wss://nos.lol", "wss://relay.damus.io"]
     : ["ws://127.0.0.1:7778"];
+/** Where Jester games from other clients are read: the public relays Amethyst writes to. */
+export const JESTER_RELAYS = import.meta.env.PROD
+  ? ["wss://relay.primal.net", "wss://nos.lol", "wss://relay.damus.io"]
+  : DEFAULT_RELAYS;
 
 declare global {
   interface Window {
