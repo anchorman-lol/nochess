@@ -50,6 +50,17 @@ describe("settings", () => {
     expect(loadSettings(store)).toEqual({ ...DEFAULTS, pieces: "celtic", volume: 1 });
   });
 
+  it("cap what a bot without a record may charge, at whole sats of zero or more", () => {
+    expect(DEFAULTS.newBotCap).toBe(100);
+    const stored = (newBotCap: unknown) =>
+      loadSettings(memory({ "luft:settings": JSON.stringify({ newBotCap }) })).newBotCap;
+    expect(stored(500)).toBe(500);
+    expect(stored(0)).toBe(0);
+    expect(stored(12.7)).toBe(12);
+    expect(stored(-3)).toBe(100);
+    expect(stored("lots")).toBe(100);
+  });
+
   it("fall back to the defaults when the stored value isn't JSON", () => {
     expect(loadSettings(memory({ "luft:settings": "{oops" }))).toEqual(DEFAULTS);
   });

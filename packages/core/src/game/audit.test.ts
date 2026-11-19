@@ -81,6 +81,14 @@ test("auditAll lists each game once, newest first", () => {
   ]);
 });
 
+test("a game nobody started is archived with who didn't move, and moves no rating", () => {
+  const game = signedGame("g6", ["e4"], true, "abort");
+  expect(game).toMatchObject({ result: "*", termination: "no start", noStart: 1 });
+  const verdict = audit([by(0, archive(game, "ws://relay", 600))])!;
+  expect(verdict).toMatchObject({ result: "*", termination: "no start", noStart: 1 });
+  expect(ratings([verdict]).size).toBe(0);
+});
+
 test("Glicko-2 reproduces Glickman's worked example", () => {
   const opponent = (r: number, rd: number) => ({ r, rd, vol: 0.06, games: 0 });
   const after = rate(

@@ -1,31 +1,23 @@
-import { parseTc, speedOf } from "@luft/core/game/events.ts";
-import type { Verdict } from "@luft/core/game/archive.ts";
+import { parseTc } from "@luft/core/game/events.ts";
 import { Icon } from "@luft/ui/components/icon";
 import { cn } from "cn";
 import * as nip19 from "nostr-tools/nip19";
 import { type FormEvent, type ReactNode, useState } from "react";
-import { type LobbyModel, me, route, source, who } from "../app/store.ts";
+import { FIRST_PAGE, type LobbyModel, me, route, source, who } from "../app/store.ts";
 import {
   Hint,
   List,
   None,
   Player,
   PlayerLink,
-  RatingOf,
   Section,
   ShowRating,
   Signed,
 } from "../components/common.tsx";
+import { Countdown } from "../components/clock.tsx";
+import { LiveRow, RankRow, ResultRow, SeekRow, ShowAll } from "../components/rows.tsx";
 import { field } from "../components/table.tsx";
-import {
-  gameHref,
-  plural,
-  seekHref,
-  shortKey,
-  tcLabel,
-  terms,
-  TIME_CONTROLS,
-} from "../lib/format.ts";
+import { plural, seekHref, shortKey, tcLabel, terms, TIME_CONTROLS } from "../lib/format.ts";
 
 const ROWS = [
   { speed: "Blitz", note: "3 to 8 minutes", tcs: ["180+2", "300+0", "300+3"] },
@@ -89,7 +81,8 @@ function Pairing({ model }: { model: LobbyModel }) {
         >
           {face}
           <span className="text-[0.8rem] font-semibold text-brand">
-            Seeking… <u>Cancel</u>
+            {mine ? <Countdown until={mine.joinBy} testid="seek-countdown" /> : "Seeking…"}{" "}
+            <u>Cancel</u>
           </span>
         </button>
       );
@@ -193,7 +186,7 @@ function Toggle({
 function Seeks({ model }: { model: LobbyModel }) {
   const others = model.seeks.filter((seek) => !seek.mine);
   return (
-    <Section title="Open seeks">
+    <Section title="Open seeks" aside={<ShowAll href="#/games/open" count={others.length} />}>
       <List data-testid="my-seeks" className="border-t-0">
         {model.seeks
           .filter((seek) => seek.mine)
@@ -209,7 +202,7 @@ function Seeks({ model }: { model: LobbyModel }) {
                   ) : (
                     "seek"
                   )}
-                  , waiting…
+                  , withdrawn in <Countdown until={seek.joinBy} testid="seek-countdown" />
                 </span>
                 <span className="text-[0.9rem] text-muted-foreground">
                   {terms(seek.tc, seek.rated)}
@@ -228,25 +221,7 @@ function Seeks({ model }: { model: LobbyModel }) {
       </List>
       <List data-testid="seeks">
         {others.length ? (
-          others.map((seek) => (
-            <li key={seek.gameId}>
-              <a
-                href={seekHref(seek)}
-                className="flex min-w-0 flex-1 items-center gap-3 hover:text-brand"
-              >
-                <span className="flex min-w-0 flex-1 items-center gap-2 truncate font-semibold">
-                  <Player pubkey={seek.host} />
-                  <RatingOf pubkey={seek.host} speed={speedOf(seek.tc)} />
-                </span>
-                <span className="text-[0.9rem] text-muted-foreground tabular-nums">
-                  {tcLabel(seek.tc)}
-                </span>
-                <span className="w-24 text-right text-[0.9rem] text-muted-foreground">
-                  {seek.forMe ? "challenges you" : seek.rated ? "rated" : "casual"}
-                </span>
-              </a>
-            </li>
-          ))
+          others.slice(0, FIRST_PAGE).map((seek) => <SeekRow key={seek.gameId} seek={seek} />)
         ) : (
           <None>Nobody is waiting. Pick a time to open a seek.</None>
         )}
@@ -257,27 +232,13 @@ function Seeks({ model }: { model: LobbyModel }) {
 
 function Live({ model }: { model: LobbyModel }) {
   return (
-    <Section title="On the boards">
+    <Section
+      title="On the boards"
+      aside={<ShowAll href="#/games/live" count={model.live.length} />}
+    >
       <List data-testid="live">
         {model.live.length ? (
-          model.live.map((game) => (
-            <li key={game.gameId}>
-              <a
-                href={seekHref(game)}
-                className="flex min-w-0 flex-1 items-center gap-3 hover:text-brand"
-              >
-                <Icon name="eye" className="text-muted-foreground" />
-                <span className="min-w-0 flex-1 truncate font-semibold">
-                  <Player pubkey={game.host} />{" "}
-                  <i className="font-normal text-muted-foreground not-italic">vs</i>{" "}
-                  <Player pubkey={game.guest} />
-                </span>
-                <span className="text-[0.9rem] text-muted-foreground max-sm:hidden">
-                  {terms(game.tc, game.rated)}
-                </span>
-              </a>
-            </li>
-          ))
+          model.live.slice(0, FIRST_PAGE).map((game) => <LiveRow key={game.gameId} game={game} />)
         ) : (
           <None>No game is running.</None>
         )}
@@ -286,35 +247,17 @@ function Live({ model }: { model: LobbyModel }) {
   );
 }
 
-export function ResultRow({ verdict }: { verdict: Verdict }) {
-  return (
-    <li>
-      <a
-        href={gameHref(verdict.addr)}
-        className="flex min-w-0 flex-1 items-center gap-3 hover:text-brand"
-      >
-        <span className="min-w-0 flex-1 truncate">
-          <Player pubkey={verdict.players[0]} />{" "}
-          <b className="mx-1 inline-block min-w-9 text-center tabular-nums">
-            {verdict.result.replaceAll("1/2", "½")}
-          </b>{" "}
-          <Player pubkey={verdict.players[1]} />
-        </span>
-        <span className="text-[0.87rem] text-muted-foreground max-sm:hidden">
-          {verdict.termination} · {terms(verdict.tc, verdict.rated)}
-        </span>
-      </a>
-    </li>
-  );
-}
-
 function Results({ model }: { model: LobbyModel }) {
   return (
     <Section
       title="Recent games"
       aside={
-        !model.checking &&
-        model.results.length > 0 && <Signed className="text-[0.87rem]">Signed and checked</Signed>
+        <>
+          {!model.checking && model.results.length > 0 && (
+            <Signed className="text-[0.87rem]">Signed and checked</Signed>
+          )}
+          <ShowAll href="#/games" count={model.results.length} />
+        </>
       }
     >
       <Hint className="mb-2" data-testid="audit">
@@ -327,7 +270,7 @@ function Results({ model }: { model: LobbyModel }) {
             }`}
       </Hint>
       <List data-testid="results">
-        {model.results.map((verdict) => (
+        {model.results.slice(0, FIRST_PAGE).map((verdict) => (
           <ResultRow key={verdict.addr} verdict={verdict} />
         ))}
       </List>
@@ -358,7 +301,7 @@ function StartPanel({ model }: { model: LobbyModel }) {
           </button>
         ))}
       </div>
-      <div className="grid gap-3 p-4" role="tabpanel">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-3 p-4" role="tabpanel">
         {tab === "friend" && (
           <form className="grid gap-3" onSubmit={submit("challenge")}>
             <label className="grid gap-1 text-[0.87rem] font-semibold">
@@ -433,7 +376,11 @@ function Times({ model }: { model: LobbyModel }) {
   return (
     <div className="grid gap-1 text-[0.87rem] font-semibold">
       <span id="times">Time</span>
-      <div className="grid grid-cols-5 gap-1" role="radiogroup" aria-labelledby="times">
+      <div
+        className="grid grid-cols-[repeat(auto-fill,minmax(3.25rem,1fr))] gap-1"
+        role="radiogroup"
+        aria-labelledby="times"
+      >
         {[...new Set([...TIME_CONTROLS, model.tc])].map((tc) => (
           <label key={tc} className="cursor-pointer" title={tcLabel(tc)}>
             <input
@@ -457,27 +404,45 @@ function Bots({ model }: { model: LobbyModel }) {
   return (
     <>
       <Times model={model} />
-      <List data-testid="bots">
+      <List data-testid="bots" className="[&>li]:flex-wrap [&>li]:gap-y-1">
         {model.bots.length ? (
           model.bots.map((bot) => (
-            <li key={bot.pubkey}>
-              <span className="flex min-w-0 flex-1 items-center gap-2">
-                <PlayerLink pubkey={bot.pubkey} />
-                {bot.rating && (
-                  <span className="rating text-muted-foreground tabular-nums">
-                    <ShowRating rating={bot.rating} />
-                  </span>
-                )}
+            <li key={bot.pubkey} className={cn(!bot.status.free && "opacity-60")}>
+              <span className="grid min-w-0 flex-1">
+                <span className="flex min-w-0 items-center gap-2">
+                  <PlayerLink pubkey={bot.pubkey} />
+                  {bot.rating && (
+                    <span className="rating text-muted-foreground tabular-nums">
+                      <ShowRating rating={bot.rating} />
+                    </span>
+                  )}
+                </span>
+                <small className="text-[0.8rem] text-muted-foreground" data-testid="bot-status">
+                  {!bot.status.online
+                    ? "offline"
+                    : bot.status.free
+                      ? `online, ${bot.status.free} of ${bot.status.max} free`
+                      : "online, every table busy"}
+                </small>
+                <small className="text-[0.8rem] text-muted-foreground" data-testid="bot-record">
+                  {bot.record}
+                </small>
               </span>
               <button
                 type="button"
-                className={cn(button, "h-8 text-[0.87rem]")}
+                className={cn(button, "h-8 shrink-0 text-[0.87rem]")}
                 data-testid="challenge-bot"
-                disabled={!bot.plays}
+                disabled={!bot.plays || bot.capped || !bot.status.free}
                 title={
-                  bot.plays
-                    ? `Challenge to ${terms(model.tc, model.rated)}`
-                    : `Doesn't play ${terms(model.tc, model.rated)}`
+                  !bot.status.free
+                    ? bot.status.online
+                      ? "Every table of this bot is busy"
+                      : "This bot is offline"
+                    : bot.capped
+                      ? `Over your ${plural(model.newBotCap, "sat")} cap for bots without a record (Settings)`
+                      : bot.plays
+                        ? `Challenge to ${terms(model.tc, model.rated)}`
+                        : `Doesn't play ${terms(model.tc, model.rated)}`
                 }
                 onClick={() => act("challenge-bot", { pubkey: bot.pubkey })}
               >
@@ -491,7 +456,9 @@ function Bots({ model }: { model: LobbyModel }) {
       </List>
       <Hint>
         {terms(model.tc, model.rated)}. A human's rating moves half as far against a bot. A bot that
-        names a price joins once you have paid it.
+        names a price joins once you have paid it. A challenge waits a minute for a free bot and
+        three for a paid one, then withdraws itself. A bot without a record can't charge more than{" "}
+        {plural(model.newBotCap, "sat")} here; change that in Settings.
       </Hint>
     </>
   );
@@ -499,26 +466,17 @@ function Bots({ model }: { model: LobbyModel }) {
 
 function Ranks({ model }: { model: LobbyModel }) {
   return (
-    <Section title="Leaderboard">
+    <Section
+      title="Leaderboard"
+      aside={<ShowAll href="#/leaderboard" count={model.ranks.length} />}
+    >
       <ol data-testid="ranks" className="border-t border-line">
         {model.ranks.length ? (
-          model.ranks.map(({ pubkey, speed, rating }, i) => (
-            <li
-              key={`${pubkey}-${speed}`}
-              className="flex min-h-11 items-center gap-3 border-b border-line py-1.5"
-            >
-              <span className="w-5 text-muted-foreground tabular-nums">{i + 1}</span>
-              <span className="min-w-0 flex-1 truncate">
-                <PlayerLink pubkey={pubkey} />
-              </span>
-              <span className="text-[0.87rem] text-muted-foreground">
-                {speed} · {plural(rating.games, "game")}
-              </span>
-              <b className="rating tabular-nums">
-                <ShowRating rating={rating} />
-              </b>
-            </li>
-          ))
+          model.ranks
+            .slice(0, FIRST_PAGE)
+            .map((rank, i) => (
+              <RankRow key={`${rank.pubkey}-${rank.speed}`} rank={rank} n={i + 1} />
+            ))
         ) : (
           <li className="flex min-h-11 items-center border-b border-line text-[0.9rem] text-muted-foreground">
             No rated game yet.

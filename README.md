@@ -28,13 +28,15 @@ Open the app in two browsers (or one normal and one private window) to play your
 | `pnpm shots`          | Screenshots of the landing page, lobby, game, settings, the profile editor, the relay list, a zap, a paid bot and an invoice at 1440 and 390 px, light and dark, into `SHOTS_DIR`; fails on a console error |
 | `pnpm check`          | Lint, format check, typecheck, unit tests and e2e                                                                                                                                                           |
 
-The tools read `LUFT_RELAY` (default `ws://127.0.0.1:7778`) and keep their keys in `.keys/`. A second bot needs a key of its own: `LUFT_BOT_ID=name` keeps it in `.keys/name.hex`. `LUFT_BOT_SPEEDS` (`blitz,rapid`) and `LUFT_BOT_MODES` (`rated,casual`) limit what a bot plays. A bot keeps the keys of its games in `.keys/<id>-sessions.json`, so after a restart it carries on with the games it sits in; it takes at most `LUFT_BOT_TABLES` (default 15) games and challenges at once, since relays cap subscriptions per connection.
+The tools read `LUFT_RELAY` (default `ws://127.0.0.1:7778`) and keep their keys in `.keys/`. A second bot needs a key of its own: `LUFT_BOT_ID=name` keeps it in `.keys/name.hex`. `LUFT_BOT_SPEEDS` (`blitz,rapid`) and `LUFT_BOT_MODES` (`rated,casual`) limit what a bot plays. A bot keeps the keys of its games in `.keys/<id>-sessions.json`, so after a restart it carries on with the games it sits in; it takes at most `LUFT_BOT_TABLES` (default 15) games and challenges at once, since relays cap subscriptions per connection, and declines the rest.
 
 ## What is in it
 
-- Seeks and direct challenges, blitz, rapid, classical and correspondence. No bullet. A seek can be withdrawn, and a quick-pairing tile seeks from the lobby.
-- Clocks from event timestamps, resign, draw by agreement, abort, automatic time claims.
-- Spectating by link, and a chat per game: the players trade quick phrases during the game and talk freely after it, spectators have a room of their own.
+- Seeks and direct challenges, blitz, rapid, classical and correspondence. No bullet. A seek can be withdrawn, and a quick-pairing tile seeks from the lobby. Nothing waits for ever: a seek or challenge withdraws itself when its countdown runs out, and a bot declines what it can't take.
+- Clocks from event timestamps, resign, draw by agreement, abort, automatic time claims. Each first move has Lichess's short limit; a game whose first move doesn't come is aborted, unrated, on the side that didn't move.
+- A reliability record for every bot and player (challenges answered, time to answer, games abandoned), from public events, also published by the rater, and a price cap for bots without one.
+- Spectating by link, and a chat per game: the players talk freely, with quick phrases a tap away; spectators have a room of their own that players see once the game is over.
+- Full lists of games, live boards, open seeks and the leaderboard, loading older ones from the relay as you scroll.
 - A signed archive of every finished game and a results list that shows only games whose every signature verifies.
 - The computer in the browser (Stockfish WASM, eight levels, casual) and a bot account that plays rated games over the relay.
 - Glicko-2 ratings per speed class: published by a rater the client trusts (`VITE_RATERS`), verifiable from a player's page, and computed in the browser where no rater has spoken.
@@ -47,7 +49,7 @@ The tools read `LUFT_RELAY` (default `ws://127.0.0.1:7778`) and keep their keys 
 
 Zaps go from the payer's wallet to the recipient's lightning address. Nochess holds no money, and nothing paid depends on who wins: there are no stakes, wagers or prize pools.
 
-A zap can give a share to the platform. The dialog shows who gets what before anything is paid, the share is 5% unless the payer changes it, and 0 sends everything to the players. Each receiver is paid by an invoice of their own. Fees to a bot or reviewer are not split.
+A zap can give a share to the platform. The dialog shows who gets what before anything is paid, the share is 15% unless the build sets `VITE_PLATFORM_SHARE` or the payer changes it, and 0 sends everything to the players. Each receiver is paid by an invoice of their own. Fees to a bot or reviewer are not split.
 
 A paid bot's fee is spent when the bot joins the challenge. If it never joins, the same payment covers your next challenge to it. There are no refunds.
 
@@ -56,7 +58,7 @@ A paid bot's fee is spent when the bot joins the challenge. If it never joins, t
 The mock provider and the play-money wallet exist only where `VITE_DEV_WALLET` is set. For real sats:
 
 1. Build or serve the app without `VITE_DEV_WALLET`. Payers then use their own WebLN wallet or Nostr Wallet Connect link, or scan the invoice.
-2. For a share, set `VITE_PLATFORM_LUD16` to the platform's lightning address and `VITE_PLATFORM_PUBKEY` to the hex key the share is zapped to. Leave them unset for no share.
+2. For a share, set `VITE_PLATFORM_LUD16` to the platform's lightning address and `VITE_PLATFORM_PUBKEY` to the hex key the share is zapped to, and optionally `VITE_PLATFORM_SHARE` (percent, default 15). Leave them unset for no share. The Pages build reads them from `apps/web/.env.production`.
 3. Give each service a lightning address at a provider that supports NIP-57 zaps (its LNURL endpoint says `allowsNostr`): `LUFT_BOT_LUD16` with `LUFT_BOT_PRICE`, `LUFT_REVIEW_LUD16` with `LUFT_REVIEW_PRICE`.
 4. Use a relay the providers can reach, since they publish the receipts to it, and don't start `tools/zapmock.ts`.
 

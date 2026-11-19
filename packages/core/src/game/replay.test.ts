@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { build, hashHex, speedOf } from "./events.ts";
+import { build, firstMoveWindow, hashHex, speedOf } from "./events.ts";
 import { replay } from "./replay.ts";
 import { act, ADDR, BLITZ, GAME, GUEST, HOST, KEYS, play, seek, sign, started } from "./testkit.ts";
 
@@ -82,12 +82,12 @@ test("checkmate ends the game", () => {
 });
 
 test("the clock starts after both first moves and adds the increment", () => {
-  const opened = run(play(started(), ["e4", "e5"], [5000, 9000]));
+  const opened = run(play(started(), ["e4", "e5"], [120, 140]));
   expect(opened.clocks).toEqual([300, 300]);
-  expect(opened.deadline).toBe(9300);
-  const game = run(play(started(), ["e4", "e5", "Nf3", "Nc6"], [5000, 9000, 9010, 9050]));
+  expect(opened.deadline).toBe(440);
+  const game = run(play(started(), ["e4", "e5", "Nf3", "Nc6"], [120, 140, 150, 190]));
   expect(game.clocks).toEqual([293, 263]);
-  expect(game.deadline).toBe(9050 + 293);
+  expect(game.deadline).toBe(190 + 293);
 });
 
 test("a move after the flag fell loses on time", () => {
@@ -115,11 +115,11 @@ test("a claim loses to a move that was made in time", () => {
 test("correspondence gives every move its days, from the start", () => {
   const terms = { tc: "2d", rated: false };
   const begun = run(started(terms));
-  expect(begun.deadline).toBe(100 + 2 * 86_400);
-  const game = run(play(started(terms), ["e4"], [5000]));
-  expect(game.deadline).toBe(5000 + 2 * 86_400);
+  expect(begun).toMatchObject({ startBy: 100 + 2 * 86_400, deadline: null });
+  const game = run(play(started(terms), ["e4", "e5"], [5000, 6000]));
+  expect(game.deadline).toBe(6000 + 2 * 86_400);
   const late = run([...started(terms), act(1, 0, "claim-time", 100 + 2 * 86_400 + 1)]);
-  expect(late).toMatchObject({ result: "0-1", termination: "time" });
+  expect(late).toMatchObject({ result: "*", termination: "no start", noStart: 0 });
 });
 
 test("resigning loses, and before both have moved it aborts", () => {
@@ -183,4 +183,61 @@ test("a withdrawn seek is over: it takes no join, before or after", () => {
   const late = sign(GUEST, build.join(ADDR, HOST, BLITZ, KEYS[1], hashHex("salt"), 97));
   expect(run([open, cancelled, late])).toMatchObject({ phase: "cancelled", join: null });
   expect(Number(cancelled.tags.find((tag) => tag[0] === "expiration")![1])).toBeGreaterThan(96);
+});
+
+test("each first move has Lichess's window: 25 s in blitz, 30 in rapid, 35 slower", () => {
+  expect(firstMoveWindow("300+3")).toBe(25);
+  expect(firstMoveWindow("900+10")).toBe(30);
+  expect(firstMoveWindow("1800+0")).toBe(35);
+  expect(firstMoveWindow("2d")).toBe(2 * 86_400);
+  expect(run(started())).toMatchObject({ startBy: 125, deadline: null, noStart: null });
+  expect(run(play(started(), ["e4"], [120])).startBy).toBe(145);
+  expect(run(play(started(), ["e4", "e5"], [120, 140])).startBy).toBeNull();
+});
+
+test("a first move too late aborts the game, unrated, on the player who didn't move", () => {
+  expect(run(play(started(), ["e4"], [125])).result).toBeNull();
+  const white = run(play(started(), ["e4"], [126]));
+  expect(white).toMatchObject({ result: "*", termination: "no start", noStart: 0, endedAt: 125 });
+  expect(white.sans).toEqual([]);
+  const black = run(play(started(), ["e4", "e5"], [110, 136]));
+  expect(black).toMatchObject({ result: "*", termination: "no start", noStart: 1 });
+});
+
+test("after the window either side's claim or abort ends it on the one who didn't move", () => {
+  const events = started();
+  expect(run([...events, act(1, 0, "claim-time", 125)]).result).toBeNull();
+  expect(run([...events, act(1, 0, "claim-time", 126)])).toMatchObject({ noStart: 0 });
+  expect(run([...events, act(0, 0, "abort", 130)])).toMatchObject({ noStart: 0 });
+  expect(run([...events, act(1, 0, "abort", 130)])).toMatchObject({ noStart: 0 });
+  const early = run([...events, act(1, 0, "abort", 110)]);
+  expect(early).toMatchObject({ result: "*", termination: "aborted", noStart: null });
+});
+
+test("a seek takes joins until it expires, and shows when that is", () => {
+  const open = sign(HOST, build.open(GAME, BLITZ, KEYS[0], hashHex("salt"), 90, undefined, 60));
+  const join = (at: number) =>
+    sign(GUEST, build.join(ADDR, HOST, BLITZ, KEYS[1], hashHex("salt"), at));
+  expect(run([open])).toMatchObject({ phase: "open", joinBy: 150 });
+  expect(run([open, join(150)]).join).not.toBeNull();
+  expect(run([open, join(151)]).join).toBeNull();
+});
+
+test("a challenge that expired or was declined says who didn't join", () => {
+  const open = sign(HOST, build.open(GAME, BLITZ, KEYS[0], hashHex("salt"), 90, GUEST, 60));
+  const expired = sign(
+    HOST,
+    build.cancelled(GAME, BLITZ, 151, { challenged: GUEST, reason: "expired" }),
+  );
+  expect(run([open, expired])).toMatchObject({
+    phase: "cancelled",
+    challenged: GUEST,
+    ending: "expired",
+  });
+  expect(expired.tags.some((tag) => tag[0] === "expiration")).toBe(false);
+  const no = sign(GUEST, build.decline(ADDR, HOST, "busy", 95));
+  expect(run([open, no])).toMatchObject({ phase: "cancelled", ending: "declined: busy" });
+  expect(run([open, sign("e".repeat(64), build.decline(ADDR, HOST, "busy", 95))]).phase).toBe(
+    "open",
+  );
 });

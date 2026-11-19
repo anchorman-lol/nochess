@@ -214,14 +214,34 @@ export function SettingsPage() {
           </ul>
         )}
       </Group>
+      <Group
+        title="Bots"
+        hint="A bot that has never answered a challenge or played a game can't charge you more than this. It shows its price and record in the lobby either way."
+      >
+        <Row label="Most a new bot may charge (sats)">
+          <input
+            type="number"
+            min={0}
+            step={1}
+            defaultValue={settings.newBotCap}
+            data-testid="settings-bot-cap"
+            aria-label="Most a new bot may charge, in sats"
+            className={cn(field, "w-28 text-right tabular-nums")}
+            onChange={(event) => {
+              const sats = event.target.valueAsNumber;
+              if (sats >= 0) set({ newBotCap: Math.floor(sats) });
+            }}
+          />
+        </Row>
+      </Group>
       <Hint>These settings live in this browser only.</Hint>
     </main>
   );
 }
 
-const FIELDS: [keyof ProfileEdits, string, string][] = [
-  ["name", "Name", "alekhine"],
-  ["display_name", "Display name", "Alexander Alekhine"],
+const FIELDS: [keyof ProfileEdits, string, string, string?][] = [
+  ["name", "Name", "alekhine", "A short handle, no spaces."],
+  ["display_name", "Display name", "Alexander Alekhine", "The full name shown on your card."],
   ["picture", "Picture URL", "https://…/me.png"],
   ["lud16", "Lightning address", "you@wallet.example"],
   ["about", "About", "A line or two about you"],
@@ -257,32 +277,34 @@ function ProfileEditor() {
     >
       {values ? (
         <form className="grid gap-3 sm:grid-cols-2" onSubmit={save} data-testid="profile-editor">
-          {FIELDS.map(([name, label, placeholder]) => (
-            <label
-              key={name}
-              className={cn(
-                "grid gap-1 text-[0.87rem] font-semibold",
-                name === "about" && "sm:col-span-2",
+          {FIELDS.map(([name, label, placeholder, hint]) => (
+            <div key={name} className={cn("grid gap-1", name === "about" && "sm:col-span-2")}>
+              <label className="grid gap-1 text-[0.87rem] font-semibold">
+                {label}
+                {name === "about" ? (
+                  <textarea
+                    name={name}
+                    defaultValue={values[name]}
+                    placeholder={placeholder}
+                    rows={3}
+                    className={cn(field, "h-auto py-2 font-normal")}
+                  />
+                ) : (
+                  <input
+                    name={name}
+                    defaultValue={values[name]}
+                    placeholder={placeholder}
+                    aria-describedby={hint && `hint-${name}`}
+                    className={cn(field, "font-normal")}
+                  />
+                )}
+              </label>
+              {hint && (
+                <small id={`hint-${name}`} className="text-[0.8rem] text-muted-foreground">
+                  {hint}
+                </small>
               )}
-            >
-              {label}
-              {name === "about" ? (
-                <textarea
-                  name={name}
-                  defaultValue={values[name]}
-                  placeholder={placeholder}
-                  rows={3}
-                  className={cn(field, "h-auto py-2 font-normal")}
-                />
-              ) : (
-                <input
-                  name={name}
-                  defaultValue={values[name]}
-                  placeholder={placeholder}
-                  className={cn(field, "font-normal")}
-                />
-              )}
-            </label>
+            </div>
           ))}
           <div className="flex items-center gap-3 sm:col-span-2">
             <button className={cn(btn, btnPrimary)} data-testid="profile-save">

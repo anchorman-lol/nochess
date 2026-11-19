@@ -19,8 +19,11 @@ type Sub = {
   filters: Filter[];
   onEvent: (event: GameEvent) => void;
   onEose?: () => void;
+  onRefused?: (reason: string) => void;
   handle?: Subscription;
 };
+/** Why nostr-tools closes a subscription itself, as against a relay's CLOSED. */
+const OURS = /^(closed by caller|relay connection closed|<aborted>)/;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -72,7 +75,13 @@ export class Net {
   }
 
   private open(relay: Relay, sub: Sub) {
-    sub.handle = relay.subscribe(sub.filters, { onevent: sub.onEvent, oneose: sub.onEose });
+    sub.handle = relay.subscribe(sub.filters, {
+      onevent: sub.onEvent,
+      oneose: sub.onEose,
+      onclose: (reason) => {
+        if (!OURS.test(reason)) sub.onRefused?.(reason);
+      },
+    });
   }
 
   private async ready(): Promise<Relay> {
@@ -81,8 +90,14 @@ export class Net {
     return this.relay;
   }
 
-  subscribe(filters: Filter[], onEvent: Sub["onEvent"], onEose?: () => void): () => void {
-    const sub: Sub = { filters, onEvent, onEose };
+  /** `onRefused` hears a relay's CLOSED, such as a cap on subscriptions. */
+  subscribe(
+    filters: Filter[],
+    onEvent: Sub["onEvent"],
+    onEose?: () => void,
+    onRefused?: (reason: string) => void,
+  ): () => void {
+    const sub: Sub = { filters, onEvent, onEose, onRefused };
     this.subs.add(sub);
     if (this.relay) this.open(this.relay, sub);
     return () => {

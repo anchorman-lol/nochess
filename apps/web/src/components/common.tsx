@@ -1,5 +1,6 @@
 import type { Speed } from "@luft/core/game/events.ts";
 import { Icon } from "@luft/ui/components/icon";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@luft/ui/components/tooltip";
 import { cn } from "cn";
 import type { ReactNode } from "react";
 import { me, rate, who } from "../app/store.ts";
@@ -77,13 +78,18 @@ export function ShowRating({ rating }: { rating: Rating }) {
     <>
       {Math.round(rating.r)}
       {provisional(rating) && (
-        <abbr
-          title="Provisional: fewer games played"
-          aria-label="provisional: fewer games played"
-          className="cursor-help no-underline"
-        >
-          ?
-        </abbr>
+        <Tooltip>
+          <TooltipTrigger
+            delay={150}
+            render={<abbr tabIndex={0} />}
+            aria-label="provisional: fewer games played"
+            className="cursor-help no-underline"
+            data-testid="provisional"
+          >
+            ?
+          </TooltipTrigger>
+          <TooltipContent>Provisional: fewer games played</TooltipContent>
+        </Tooltip>
       )}
     </>
   );

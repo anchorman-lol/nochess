@@ -1,13 +1,12 @@
 import { type GameEvent, KIND, type Profile, tagValue } from "@luft/core/game/events.ts";
 import type { Net } from "@luft/core/nostr/net.ts";
 import { invoiceFor, type PayPoint, payPoint } from "@luft/core/zap/lnurl.ts";
+import { MAX_SHARE } from "./platform.ts";
 import { pay } from "./wallet.ts";
 import { readZap, split, type Zap, zapRequest } from "@luft/core/zap/zap.ts";
 
 const SHARE_STORE = "luft:share";
 const AMOUNT_STORE = "luft:zap";
-export const DEFAULT_SHARE = 5;
-export const MAX_SHARE = 50;
 
 /** One zap of a sheet: `open` has an invoice, `sent` was paid by the wallet, `paid` has its receipt. */
 export type Line = {
@@ -43,7 +42,7 @@ const reason = (error: unknown) => (error instanceof Error ? error.message : Str
 export function zapper(
   net: Net,
   who: (pubkey: string) => Profile,
-  platform: string | null,
+  platform: { pubkey: string; share: number } | null,
   paint: () => void,
 ) {
   let sheet: Sheet | null = null;
@@ -71,13 +70,15 @@ export function zapper(
   }
 
   const lines = ({ fee, sats, to, percent }: Sheet): Line[] =>
-    (fee ? [{ pubkey: to[0], sats }] : split(sats, to, platform, percent)).map((part) => ({
-      ...part,
-      bolt11: "",
-      state: "new",
-      manual: false,
-      error: "",
-    }));
+    (fee ? [{ pubkey: to[0], sats }] : split(sats, to, platform?.pubkey ?? null, percent)).map(
+      (part) => ({
+        ...part,
+        bolt11: "",
+        state: "new",
+        manual: false,
+        error: "",
+      }),
+    );
 
   function close() {
     stop();
@@ -157,7 +158,7 @@ export function zapper(
         addr: spec.addr,
         fee: spec.fee !== undefined,
         sats: spec.fee ?? (Number(localStorage.getItem(AMOUNT_STORE)) || 100),
-        percent: Number(localStorage.getItem(SHARE_STORE) ?? DEFAULT_SHARE),
+        percent: Number(localStorage.getItem(SHARE_STORE) ?? platform?.share ?? 0),
         lines: [],
         paying: false,
         error: "",

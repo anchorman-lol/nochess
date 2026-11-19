@@ -12,7 +12,7 @@ import {
   type Template,
   TOPIC,
 } from "./events.ts";
-import { type Game, replay, type Result } from "./replay.ts";
+import { type Game, replay, type Result, type Seat } from "./replay.ts";
 
 export type Verdict = {
   addr: string;
@@ -24,6 +24,8 @@ export type Verdict = {
   speed: Speed;
   endedAt: number;
   sans: string[];
+  /** The seat that didn't make its first move in time. */
+  noStart: Seat | null;
 };
 type Proof = { head: GameEvent[]; sigs: [number, string][]; extra: GameEvent[] };
 
@@ -127,6 +129,7 @@ export function audit(notes: GameEvent[]): Verdict | null {
     speed: speedOf(game.tc)!,
     endedAt: game.endedAt,
     sans: game.sans,
+    noStart: game.noStart,
   };
 }
 

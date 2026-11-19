@@ -13,9 +13,14 @@ export const KIND = {
   zap: 9735,
   game: 30064,
   rating: 30382,
+  status: 30315,
 } as const;
 export const TOPIC = "luft";
-export const SEEK_TTL = 15 * 60;
+/**
+ * How long an open game waits for its join, in seconds: a seek in the lobby, a challenge to a
+ * player, and one to a bot, which gets longer when it charges so there is time to pay.
+ */
+export const WAIT = { seek: 600, challenge: 300, bot: 60, paidBot: 180 } as const;
 /** How long the relay keeps a withdrawn seek, so clients that had it open learn of it. */
 const CANCELLED_TTL = 60;
 export const ACTIONS = ["resign", "abort", "draw-offer", "draw-accept", "claim-time"] as const;
@@ -70,6 +75,14 @@ const termTags = ({ tc, rated }: Terms) => [
   ["rated", rated ? "1" : "0"],
 ];
 
+/** Lichess's time for each side's first move, outside tournaments; correspondence gives its days. */
+export function firstMoveWindow(tc: string): number {
+  const speed = speedOf(tc);
+  const clock = parseTc(tc);
+  if (clock && "days" in clock) return clock.days * 86_400;
+  return speed === "blitz" ? 25 : speed === "rapid" ? 30 : 35;
+}
+
 /** White is decided by a salt the host committed to before it saw the join. */
 export const hostIsWhite = (salt: string, joinId: string) =>
   parseInt(hashHex(`${salt}:${joinId}`).slice(0, 2), 16) % 2 === 0;
@@ -83,6 +96,7 @@ export const build = {
     seed: string,
     now: number,
     challenged?: string,
+    wait: number = WAIT.seek,
   ): Template => ({
     kind: KIND.game,
     created_at: now,
@@ -94,13 +108,21 @@ export const build = {
       ...termTags(terms),
       ["session", session],
       ["seed", seed],
-      ["expiration", String(now + SEEK_TTL)],
+      ["expiration", String(now + wait)],
       ...(challenged ? [["p", challenged]] : []),
       ["-"],
     ],
   }),
-  /** Withdraws an open seek or challenge: it replaces the open event and soon expires itself. */
-  cancelled: (gameId: string, terms: Terms, now: number): Template => ({
+  /**
+   * Withdraws an open seek or challenge: it replaces the open event and soon expires itself. A
+   * challenge that ran out of time instead stays, naming the player who didn't join.
+   */
+  cancelled: (
+    gameId: string,
+    terms: Terms,
+    now: number,
+    why?: { challenged: string; reason: "expired" },
+  ): Template => ({
     kind: KIND.game,
     created_at: now,
     content: "",
@@ -109,7 +131,12 @@ export const build = {
       ["t", TOPIC],
       ["status", "cancelled"],
       ...termTags(terms),
-      ["expiration", String(now + CANCELLED_TTL)],
+      ...(why
+        ? [
+            ["reason", why.reason],
+            ["p", why.challenged],
+          ]
+        : [["expiration", String(now + CANCELLED_TTL)]]),
       ["-"],
     ],
   }),
@@ -120,6 +147,7 @@ export const build = {
     salt: string,
     join: Pick<GameEvent, "id" | "pubkey">,
     now: number,
+    opened = now,
   ): Template => ({
     kind: KIND.game,
     created_at: now,
@@ -133,6 +161,7 @@ export const build = {
       ["salt", salt],
       ["p", join.pubkey],
       ["e", join.id],
+      ["opened", String(opened)],
       ["-"],
     ],
   }),
@@ -159,6 +188,38 @@ export const build = {
       ["session", session],
       ["seed", seed],
       ...(paidBy ? [["e", paidBy]] : []),
+    ],
+  }),
+  /** The challenged player's no, with a reason such as `busy`. */
+  decline: (addr: string, host: string, reason: string, now: number): Template => ({
+    kind: KIND.join,
+    created_at: now,
+    content: "",
+    tags: [
+      ["a", addr],
+      ["p", host],
+      ["decline", reason],
+    ],
+  }),
+  /**
+   * A bot's NIP-38 status, replaced every minute and on changes: online or not, how many of its
+   * `max` tables are free, and its price. It expires after 150 s, so a bot that died goes offline.
+   */
+  status: (
+    { online, free, max, msat }: { online: boolean; free: number; max: number; msat: number },
+    now: number,
+  ): Template => ({
+    kind: KIND.status,
+    created_at: now,
+    content: online ? "online" : "offline",
+    tags: [
+      ["d", "general"],
+      ["t", TOPIC],
+      ["status", online ? "online" : "offline"],
+      ["free", String(free)],
+      ["max", String(max)],
+      ["price_msat", String(msat)],
+      ["expiration", String(now + STATUS_TTL)],
     ],
   }),
   /** Tag order is fixed: an archive rebuilds this event from the SAN, the time and the signature. */
@@ -196,6 +257,18 @@ export const build = {
     ],
   }),
 };
+
+const STATUS_TTL = 150;
+/** A bot's status as of `now`: one with no current status event is offline. */
+export function readStatus(event: Pick<GameEvent, "tags"> | undefined, now: number) {
+  const number = (name: string) => Number(event && tagValue(event, name)) || 0;
+  const current = !!event && number("expiration") >= now;
+  return {
+    online: current && tagValue(event, "status") === "online",
+    free: current ? number("free") : 0,
+    max: number("max"),
+  };
+}
 
 /** What a bot or reviewer charges per game, in millisats, and which games it takes. */
 export type Fee = {

@@ -63,6 +63,20 @@ test("a game can be aborted before both have moved", async ({ browser }) => {
     await expect(page.getByTestId("outcome")).toHaveText("Game aborted");
 });
 
+test("a first move that doesn't come in time aborts the game, unrated, on the side that didn't move", async ({
+  browser,
+}) => {
+  test.setTimeout(90_000);
+  const [white, black] = await sitDown(await player(browser), await player(browser));
+  await expect(white.getByTestId("first-move")).toContainText("Make your first move");
+  await expect(black.getByTestId("first-move-countdown")).toHaveText(/^0:[0-2]\d$/);
+  for (const page of [white, black])
+    await expect(page.getByTestId("outcome")).toHaveText(
+      "Game aborted: White didn't make a first move in time",
+      { timeout: 40_000 },
+    );
+});
+
 test("the player whose clock runs out loses on time", async ({ browser }) => {
   // One second plus five a move still counts as blitz, and White's second runs out at once.
   const [white, black] = await sitDown(await player(browser, "1+5"), await player(browser));
@@ -125,6 +139,7 @@ test("a seek is withdrawn from the waiting screen, its lobby row or its tile, an
 
   await host.getByTestId("create").click();
   await expect(host.getByTestId("waiting")).toBeVisible();
+  await expect(host.getByTestId("join-countdown")).toHaveText(/^(9:5\d|10:00)$/);
   const first = new URL(host.url()).hash;
   await expect(seen(first)).toBeVisible();
   await host.getByTestId("cancel-seek").click();
@@ -138,8 +153,8 @@ test("a seek is withdrawn from the waiting screen, its lobby row or its tile, an
   const tile = host.locator('[data-tc="600+0"]');
   const mine = host.getByTestId("my-seeks").locator("li");
   await tile.click();
-  await expect(host.getByTestId("seeking")).toContainText("Seeking… Cancel");
-  await expect(mine).toContainText("Your seek, waiting…");
+  await expect(host.getByTestId("seeking")).toContainText(/(9:5\d|10:00) Cancel/);
+  await expect(mine).toContainText(/Your seek, withdrawn in (9:5\d|10:00)/);
   const second = (await mine.locator("a").getAttribute("href"))!;
   await expect(seen(second)).toBeVisible();
   await host.getByTestId("seeking").click();

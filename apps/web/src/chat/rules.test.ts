@@ -24,11 +24,11 @@ const line = (from: string, room: "players" | "spectators", text: string, at = 1
 });
 
 describe("who writes what", () => {
-  it("gives players only the quick phrases while the game runs, and free text once it is over", () => {
+  it("gives players free text in their room during the game and after it", () => {
     expect(mayWrite({ me: WHITE, players, phase: "playing", room: "players" }, "Good luck")).toBe(
       true,
     );
-    expect(mayWrite({ me: WHITE, players, phase: "playing", room: "players" }, "lol")).toBe(false);
+    expect(mayWrite({ me: WHITE, players, phase: "playing", room: "players" }, "lol")).toBe(true);
     expect(mayWrite({ me: WHITE, players, phase: "finished", room: "players" }, "lol")).toBe(true);
   });
 
@@ -59,7 +59,7 @@ describe("who writes what", () => {
     expect(mayWrite(spectating, "x".repeat(MAX_LENGTH + 1))).toBe(false);
   });
 
-  it("offers the five quick phrases", () => {
+  it("offers the five quick phrases as shortcuts", () => {
     expect(PHRASES).toEqual(["Hello", "Good luck", "Good game", "Well played", "Thanks"]);
   });
 });
@@ -71,19 +71,10 @@ describe("what a reader sees", () => {
     expect(roomsFor(WATCHER, players, "playing")).toEqual(["spectators", "players"]);
   });
 
-  it("drops lines in the players' room that aren't from a player", () => {
-    expect(readable(line(WATCHER, "players", "Hello"), players, "playing", 50)).toBe(false);
-    expect(readable(line(WHITE, "players", "Hello"), players, "playing", 50)).toBe(true);
-  });
-
-  it("drops free text a player sent while the game was running", () => {
-    expect(readable(line(WHITE, "players", "you're bad", 100), players, "finished", 200)).toBe(
-      false,
-    );
-    expect(readable(line(WHITE, "players", "gg, close one", 250), players, "finished", 200)).toBe(
-      true,
-    );
-    expect(readable(line(WHITE, "players", "Thanks", 100), players, "finished", 200)).toBe(true);
+  it("drops lines in the players' room that aren't from a player, and keeps any a player wrote", () => {
+    expect(readable(line(WATCHER, "players", "Hello"), players)).toBe(false);
+    expect(readable(line(WHITE, "players", "Hello"), players)).toBe(true);
+    expect(readable(line(WHITE, "players", "nice opening", 100), players)).toBe(true);
   });
 
   it("hides muted keys and keeps the order lines were written in", () => {
@@ -95,8 +86,6 @@ describe("what a reader sees", () => {
     const result = shown(lines, {
       room: "spectators",
       players,
-      phase: "finished",
-      endedAt: 5,
       muted: [BLACK],
     });
     expect(result.map((l) => l.text)).toEqual(["first", "second"]);

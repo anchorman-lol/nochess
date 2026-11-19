@@ -41,7 +41,7 @@ test("a player is zapped from their profile, with a share for the platform that 
   await expect(bob.getByTestId("received")).toHaveText("0 sats in 0 zaps");
 
   await bob.getByTestId("zap").click();
-  await expect(bob.getByTestId("zap-line").locator("b")).toHaveText(["95 sats", "5 sats"]);
+  await expect(bob.getByTestId("zap-line").locator("b")).toHaveText(["85 sats", "15 sats"]);
   await zap(bob, 200, 0, ["200 sats"]);
   await paid(bob, 1);
   await bob.getByTestId("zap-close").click();

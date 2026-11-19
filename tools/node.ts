@@ -63,13 +63,15 @@ export function enginePipe(): Pipe {
   };
 }
 
-/** Every finished game the relay has an archive for, audited, and the keys that say they are bots. */
+/** Every finished game the relay has an archive for, audited, and the profiles of the keys that say they are bots. */
 export async function finishedGames(net: Net) {
   const [notes, profiles] = await Promise.all([
     net.fetch([{ kinds: [KIND.archive], "#t": [TOPIC], limit: 2000 }]),
     net.fetch([{ kinds: [KIND.profile], "#t": [TOPIC] }]),
   ]);
-  const bots = new Set(profiles.filter((event) => profileOf(event).bot).map((e) => e.pubkey));
+  const bots = new Map(
+    profiles.filter((event) => profileOf(event).bot).map((e) => [e.pubkey, profileOf(e)]),
+  );
   return { verdicts: auditAll(notes), bots };
 }
 

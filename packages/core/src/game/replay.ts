@@ -1,6 +1,7 @@
 import { Chess } from "chess.js";
 import {
   address,
+  firstMoveWindow,
   type GameEvent,
   hashHex,
   hostIsWhite,
@@ -27,6 +28,10 @@ export type Game = {
   rated: boolean;
   /** An open game that only this player may join. */
   challenged: string | null;
+  /** While open: the last second a join is taken. */
+  joinBy: number | null;
+  /** Why an open game closed without a join: `withdrawn`, `expired` or `declined: <reason>`. */
+  ending: string;
   /** While open: the join the host should accept. Afterwards: the one it did. */
   join: GameEvent | null;
   /** Players and their session keys, White first. */
@@ -42,6 +47,10 @@ export type Game = {
   clocks: [number, number];
   /** When the side to move runs out, in relay seconds; null until both have moved once. */
   deadline: number | null;
+  /** While a side still owes its first move: when that runs out, in relay seconds. */
+  startBy: number | null;
+  /** The seat that didn't make its first move in time, which aborted the game. */
+  noStart: Seat | null;
   /** Who has a draw offer the other side can still accept. */
   drawOffer: Seat | null;
   result: Result | null;
@@ -76,6 +85,8 @@ export function replay(events: GameEvent[], host: string, gameId: string): Game 
     tc: "",
     rated: false,
     challenged: null,
+    joinBy: null,
+    ending: "",
     join: null,
     players: null,
     sessions: null,
@@ -86,6 +97,8 @@ export function replay(events: GameEvent[], host: string, gameId: string): Game 
     ids: [],
     clocks: [0, 0],
     deadline: null,
+    startBy: null,
+    noStart: null,
     drawOffer: null,
     result: null,
     termination: "",
@@ -101,12 +114,20 @@ export function replay(events: GameEvent[], host: string, gameId: string): Game 
   const clock = parseTc(terms.tc);
   if (!clock || !speedOf(terms.tc)) return game;
   Object.assign(game, terms);
-  if (tagValue(lobby, "status") === "cancelled") {
+  game.challenged = tagValue(lobby, "p") ?? null;
+  const about = unique.filter((event) => tagValue(event, "a") === addr);
+  const declined = about.find(
+    (event) =>
+      event.kind === KIND.join && event.pubkey === game.challenged && tagValue(event, "decline"),
+  );
+  if (tagValue(lobby, "status") === "cancelled" || (declined && !tagValue(lobby, "e"))) {
     game.phase = "cancelled";
+    game.ending = declined
+      ? `declined: ${tagValue(declined, "decline")}`
+      : (tagValue(lobby, "reason") ?? "withdrawn");
     return game;
   }
 
-  const about = unique.filter((event) => tagValue(event, "a") === addr);
   const fits = (join: GameEvent) =>
     join.pubkey !== host &&
     termsOf(join).tc === terms.tc &&
@@ -115,11 +136,12 @@ export function replay(events: GameEvent[], host: string, gameId: string): Game 
   const joins = about.filter((event) => event.kind === KIND.join && fits(event));
   if (tagValue(lobby, "status") === "open") {
     game.phase = "open";
-    game.challenged = tagValue(lobby, "p") ?? null;
+    game.joinBy = Number(tagValue(lobby, "expiration")) || null;
     game.join =
       joins.find(
         (join) =>
           tagValue(join, "seed") === tagValue(lobby, "seed") &&
+          join.created_at <= (game.joinBy ?? Infinity) &&
           (!game.challenged || join.pubkey === game.challenged),
       ) ?? null;
     return game;
@@ -140,7 +162,14 @@ export function replay(events: GameEvent[], host: string, gameId: string): Game 
   const sessions: [string, string] = [hostSession, hostSession];
   players[other(hostSeat)] = join.pubkey;
   sessions[other(hostSeat)] = tagValue(join, "session")!;
-  Object.assign(game, { phase: "playing", join, players, sessions, startedAt: lobby.created_at });
+  Object.assign(game, {
+    phase: "playing",
+    challenged: null,
+    join,
+    players,
+    sessions,
+    startedAt: lobby.created_at,
+  });
   game.proof.push(lobby, join);
   if ("base" in clock) game.clocks = [clock.base, clock.base];
 
@@ -151,8 +180,20 @@ export function replay(events: GameEvent[], host: string, gameId: string): Game 
   );
   const offers: ({ ply: number; event: GameEvent } | undefined)[] = [];
   const end = (result: Result, termination: string, at: number, ...proof: GameEvent[]) => {
-    Object.assign(game, { phase: "finished", result, termination, endedAt: at, deadline: null });
+    Object.assign(game, {
+      phase: "finished",
+      result,
+      termination,
+      endedAt: at,
+      deadline: null,
+      startBy: null,
+    });
     game.proof.push(...proof);
+  };
+  /** The side to move let its first move's time run out: the game is aborted on it. */
+  const noStart = (by: GameEvent) => {
+    game.noStart = turnOf(game);
+    end("*", "no start", game.startBy!, by);
   };
   const attempt = (san: string) => {
     try {
@@ -168,6 +209,8 @@ export function replay(events: GameEvent[], host: string, gameId: string): Game 
     const n = game.sans.length;
     const turn = turnOf(game);
     const last = game.times.at(-1) ?? game.startedAt;
+    game.startBy = n < 2 ? last + firstMoveWindow(terms.tc) : null;
+    const late = (event: GameEvent) => game.startBy !== null && event.created_at > game.startBy;
     // Offers first: an offer and its acceptance can carry the same second.
     const taken = actions.filter((event) => plyOf(event) === n);
     const isOffer = (event: GameEvent) => tagValue(event, "action") === "draw-offer";
@@ -180,7 +223,8 @@ export function replay(events: GameEvent[], host: string, gameId: string): Game 
       const offer = offers[other(seat)];
       if (what === "draw-offer") offers[seat] = { ply: n, event: action };
       else if (what === "abort" || what === "resign") {
-        if (n < 2) end("*", "aborted", action.created_at, action);
+        if (late(action)) noStart(action);
+        else if (n < 2) end("*", "aborted", action.created_at, action);
         else if (what === "resign") end(win(other(seat)), "resignation", action.created_at, action);
       } else if (what === "draw-accept" && offer && n - offer.ply <= 1)
         end("1/2-1/2", "agreement", action.created_at, offer.event, action);
@@ -188,7 +232,7 @@ export function replay(events: GameEvent[], host: string, gameId: string): Game 
     if (game.result) break;
 
     game.deadline =
-      "days" in clock ? last + clock.days * 86_400 : n >= 2 ? last + game.clocks[turn] : null;
+      n < 2 ? null : "days" in clock ? last + clock.days * 86_400 : last + game.clocks[turn];
     const { deadline } = game;
     const prev = game.ids.at(-1) ?? join.id;
     const tried = moves.filter(
@@ -203,6 +247,10 @@ export function replay(events: GameEvent[], host: string, gameId: string): Game 
       break;
     }
     const [move] = tried;
+    if (move && late(move)) {
+      noStart(move);
+      break;
+    }
     if (move && deadline !== null && move.created_at > deadline) {
       end(win(other(turn)), "time", deadline, move);
       break;
@@ -213,10 +261,10 @@ export function replay(events: GameEvent[], host: string, gameId: string): Game 
           plyOf(event) === n &&
           event.pubkey === sessions[other(turn)] &&
           tagValue(event, "action") === "claim-time" &&
-          deadline !== null &&
-          event.created_at > deadline,
+          (late(event) || (deadline !== null && event.created_at > deadline)),
       );
-      if (claim) end(win(other(turn)), "time", deadline!, claim);
+      if (claim && n < 2) noStart(claim);
+      else if (claim) end(win(other(turn)), "time", deadline!, claim);
       break;
     }
 

@@ -15,6 +15,7 @@ const game = (n: number, white: string, black: string, result: Verdict["result"]
   speed: "blitz",
   endedAt: 100 * n,
   sans: [],
+  noStart: null,
 });
 const GAMES = [game(1, A, B, "1-0"), game(2, B, C, "0-1"), game(3, C, A, "1/2-1/2")];
 const publish = (player: string, games = GAMES, rater = RATER, now = 1000) =>
@@ -72,4 +73,13 @@ test("only trusted raters count, the newest assertion per player, and the rest i
   expect(table.get(A)!.blitz!.r).toBe(Math.round(local.get(A)!.blitz!.r));
   expect(table.get(B)).toBe(local.get(B));
   expect(withTrusted(local, trusted(events, []))).toEqual(local);
+});
+
+test("an assertion can carry a reliability record, read back whole", () => {
+  const record = { asked: 412, answered: 404, median: 2, games: 300, abandoned: 6, unspent: 3 };
+  const event = sign(RATER, assertion(A, {}, coverOf(GAMES), 1000, record));
+  expect(readAssertion(event)!.reliability).toEqual(record);
+  const untimed = sign(RATER, assertion(A, {}, coverOf(GAMES), 1000, { ...record, median: null }));
+  expect(readAssertion(untimed)!.reliability!.median).toBeNull();
+  expect(readAssertion(publish(A))!.reliability).toBeNull();
 });

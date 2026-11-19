@@ -33,12 +33,14 @@ export const satsTo = (zaps: Zap[], pubkeys: string[]) =>
 export const gameHref = (addr: string) => `#/${addr.split(":").slice(1).join("/")}`;
 export const seekHref = (seek: { host: string; gameId: string }) => `#/${seek.host}/${seek.gameId}`;
 
-export const outcomeText = (result: string, termination: string) =>
-  result === "*"
-    ? "Game aborted"
-    : result === "1/2-1/2"
-      ? `Draw by ${termination}`
-      : `${SIDES[result === "1-0" ? 0 : 1]} wins by ${termination}`;
+export const outcomeText = (result: string, termination: string, noStart: number | null = null) =>
+  noStart !== null
+    ? `Game aborted: ${SIDES[noStart]} didn't make a first move in time`
+    : result === "*"
+      ? "Game aborted"
+      : result === "1/2-1/2"
+        ? `Draw by ${termination}`
+        : `${SIDES[result === "1-0" ? 0 : 1]} wins by ${termination}`;
 
 /** A clock face: days and hours, hours and minutes, or m:ss with tenths under ten seconds. */
 export function clockText(ms: number, running: boolean): string {

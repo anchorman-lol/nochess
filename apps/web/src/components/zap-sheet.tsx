@@ -4,7 +4,7 @@ import { cn } from "cn";
 import { renderSVG } from "uqr";
 import { PLATFORM, wallet, zap, zapSheet } from "../app/store.ts";
 import { plural } from "../lib/format.ts";
-import { MAX_SHARE } from "../zap/sheet.ts";
+import { MAX_SHARE } from "../zap/platform.ts";
 import { Hint, Player } from "./common.tsx";
 
 const AMOUNTS = [21, 100, 500, 1000];

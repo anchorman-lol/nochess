@@ -9,16 +9,25 @@ import {
   NOBODY,
   type Profile,
   profileOf,
+  readStatus,
   speedOf,
   type Speed,
   tagValue,
   termsOf,
   TOPIC,
+  WAIT,
 } from "@luft/core/game/events.ts";
 import { type Rating, ratings } from "@luft/core/game/glicko.ts";
+import {
+  describeReliability,
+  type Reliability,
+  reliability,
+  unproven,
+} from "@luft/core/game/reliability.ts";
 import { type Game, type Seat } from "@luft/core/game/replay.ts";
 import { openGame, Table } from "@luft/core/game/table.ts";
 import { Net } from "@luft/core/nostr/net.ts";
+import type { Filter } from "nostr-tools/filter";
 import { payUrl } from "@luft/core/zap/lnurl.ts";
 import type { Zap } from "@luft/core/zap/zap.ts";
 import { BRAND } from "@luft/ui/brand";
@@ -27,6 +36,7 @@ import { type ChatLine, mayWrite, rateLimited, type Room } from "../chat/rules.t
 import { play as playSound, setMusic } from "../lib/audio.ts";
 import { isPromotion, position, targets } from "../lib/board.ts";
 import { loadSettings, mute, saveSettings, type Settings } from "../lib/settings.ts";
+import { nextPage } from "../lib/paging.ts";
 import { soundFor } from "../lib/sound.ts";
 import { shortKey } from "../lib/format.ts";
 import {
@@ -43,6 +53,7 @@ import {
 } from "../nostr/browser.ts";
 import { mergeProfile, type ProfileEdits } from "../nostr/profile.ts";
 import { editRelays, type RelayEdit } from "../nostr/relays.ts";
+import { platformFrom } from "../zap/platform.ts";
 import { zapper } from "../zap/sheet.ts";
 import { setNwc, walletName } from "../zap/wallet.ts";
 
@@ -73,6 +84,8 @@ export type Seek = {
   mine: boolean;
   forMe: boolean;
   guest?: string;
+  /** When the seek withdraws itself if nobody has joined. */
+  joinBy: number;
 };
 
 /** What the board needs from a game: its moves, my side, and a way to play. */
@@ -100,14 +113,11 @@ export type Route =
   | (Base & { name: "game"; view(): GameModel })
   | (Base & { name: "profile"; view(): ProfileModel })
   | (Base & { name: "computer"; view(): ComputerModel })
+  | (Base & { name: "list"; view(): ListModel })
   | (Base & { name: "settings"; view(): null });
 
 const LIVE_FOR = 6 * 60 * 60;
-/** Who gets the platform's share of a zap: both set, or there is no share. */
-export const PLATFORM: { pubkey: string; lud16: string } | null =
-  import.meta.env.VITE_PLATFORM_PUBKEY && import.meta.env.VITE_PLATFORM_LUD16
-    ? { pubkey: import.meta.env.VITE_PLATFORM_PUBKEY, lud16: import.meta.env.VITE_PLATFORM_LUD16 }
-    : null;
+export const PLATFORM = platformFrom(import.meta.env);
 /** The raters whose published ratings are shown in place of the ones computed here. */
 const RATERS: string[] = (import.meta.env.VITE_RATERS ?? "").split(",").filter(Boolean);
 const DEV_WALLET: string = import.meta.env.VITE_DEV_WALLET ?? "";
@@ -160,6 +170,7 @@ let asking: string[] = [];
 const keep = (event: GameEvent) => {
   if ((profiles.get(event.pubkey)?.created_at ?? -1) < event.created_at)
     profiles.set(event.pubkey, event);
+  followBots();
   paint();
 };
 /** A profile without the topic tag, a human's from another client, is asked for once it is shown. */
@@ -185,7 +196,51 @@ export const who: Who = (pubkey) => {
 };
 const isBot = (pubkey: string) => who(pubkey).bot;
 net.subscribe([{ kinds: [KIND.profile], "#t": [TOPIC] }], keep);
-export const zap = zapper(net, who, PLATFORM?.pubkey ?? null, () => paint());
+export const zap = zapper(net, who, PLATFORM, () => paint());
+/** Each bot's newest NIP-38 status: whether it is online and has a free table. */
+const statuses = new Map<string, GameEvent>();
+net.subscribe([{ kinds: [KIND.status], "#t": [TOPIC] }], (event) => {
+  if ((statuses.get(event.pubkey)?.created_at ?? -1) < event.created_at)
+    statuses.set(event.pubkey, event);
+  paint();
+});
+
+/** Bots' joins and declines, and zap receipts to them: what their records rest on. */
+const botEvents = new Map<string, GameEvent>();
+let followed = "";
+let unfollow = () => {};
+function followBots() {
+  const bots = [...profiles.keys()].filter(isBot).sort();
+  if (!bots.length || bots.join() === followed) return;
+  followed = bots.join();
+  unfollow();
+  unfollow = net.subscribe(
+    [
+      { kinds: [KIND.join], authors: bots, limit: 2000 },
+      { kinds: [KIND.zap], "#p": bots, limit: 2000 },
+    ],
+    (event) => {
+      botEvents.set(event.id, event);
+      paint();
+    },
+  );
+}
+/** A player's record: a trusted rater's where it has one, else computed from what this page has. */
+function recordOf(pubkey: string): Reliability {
+  const said = asserted().get(pubkey)?.reliability;
+  if (said) return said;
+  const events = [...botEvents.values()];
+  return reliability(
+    pubkey,
+    {
+      lobbies: [...lobbies.values()],
+      joins: events.filter((event) => event.kind === KIND.join),
+      zaps: zap.zaps(events.filter((event) => event.kind === KIND.zap)),
+      verdicts: audited().results,
+    },
+    nowSec(),
+  );
+}
 export const wallet = () =>
   DEV_WALLET && window.webln ? "the dev wallet (play money)" : walletName();
 export const nameOf = (pubkey: string) => who(pubkey).name || shortKey(pubkey);
@@ -245,11 +300,14 @@ function audited() {
   return { results, doubted: all.filter((verdict) => verdict === null).length };
 }
 const assertions = new Map<string, GameEvent>();
+function addAssertion(event: GameEvent) {
+  const key = `${event.pubkey}:${tagValue(event, "d")}`;
+  if ((assertions.get(key)?.created_at ?? -1) < event.created_at) assertions.set(key, event);
+  rated = undefined;
+}
 if (RATERS.length)
   net.subscribe([{ kinds: [KIND.rating], authors: RATERS, "#t": [TOPIC] }], (event) => {
-    const key = `${event.pubkey}:${tagValue(event, "d")}`;
-    if ((assertions.get(key)?.created_at ?? -1) < event.created_at) assertions.set(key, event);
-    rated = undefined;
+    addAssertion(event);
     paint();
   });
 const asserted = () => trusted([...assertions.values()], RATERS);
@@ -266,8 +324,7 @@ export const rate: Rate = (pubkey, speed) => ratingTable().get(pubkey)?.[speed];
 /** Live games and the latest checked results, for the landing page. */
 const lobbies = new Map<string, GameEvent>();
 net.subscribe([{ kinds: [KIND.game], "#t": [TOPIC], limit: 300 }], (event) => {
-  const key = address(event.pubkey, tagValue(event, "d") ?? "");
-  if ((lobbies.get(key)?.created_at ?? -1) < event.created_at) lobbies.set(key, event);
+  addLobby(event);
   paint();
 });
 function games() {
@@ -280,6 +337,7 @@ function games() {
     guest: tagValue(event, "p") ?? "",
     mine: event.pubkey === me,
     forMe: tagValue(event, "p") === me,
+    joinBy: Number(tagValue(event, "expiration")),
   }));
   const status = (seek: (typeof all)[number]) => tagValue(seek.event, "status");
   const finished = archived();
@@ -297,6 +355,122 @@ function games() {
         !finished.has(address(seek.host, seek.gameId)) &&
         (speedOf(seek.tc) === "correspondence" || seek.event.created_at > now - LIVE_FOR),
     ),
+  };
+}
+
+/** The ranked humans, best first: bots are rated, not ranked. */
+const ranks = () =>
+  [...ratingTable()]
+    .filter(([pubkey]) => !isBot(pubkey))
+    .flatMap(([pubkey, speeds]) =>
+      Object.entries(speeds).map(([speed, rating]) => ({ pubkey, speed: speed as Speed, rating })),
+    )
+    .sort((a, b) => b.rating.r - a.rating.r);
+
+/**
+ * Walks a relay query back in time, a page at a time, into the maps the live subscriptions fill,
+ * so a list page shows more than their capped queries return.
+ */
+function pager(filter: Filter, add: (event: GameEvent) => void, size = 100) {
+  const seen = new Set<string>();
+  let until: number | null = null;
+  let state: "idle" | "loading" | "done" = "idle";
+  return {
+    get state() {
+      return state;
+    },
+    more() {
+      if (state !== "idle") return;
+      state = "loading";
+      net.fetch([{ ...filter, limit: size, ...(until === null ? {} : { until }) }]).then(
+        (page) => {
+          const next = nextPage(page, size, seen);
+          for (const event of page) {
+            seen.add(event.id);
+            add(event);
+          }
+          until = next.until;
+          state = next.done ? "done" : "idle";
+          paint();
+        },
+        () => {
+          state = "idle";
+          paint();
+        },
+      );
+    },
+  };
+}
+const pagers = new Map<string, ReturnType<typeof pager>>();
+const paged = (key: string, filter: Filter, add: (event: GameEvent) => void) =>
+  pagers.get(key) ?? pagers.set(key, pager(filter, add)).get(key)!;
+const addNote = (event: GameEvent) => {
+  notes.set(event.id, event);
+  checkSoon();
+};
+const addLobby = (event: GameEvent) => {
+  const key = address(event.pubkey, tagValue(event, "d") ?? "");
+  if ((lobbies.get(key)?.created_at ?? -1) < event.created_at) lobbies.set(key, event);
+};
+const archivePages = () => paged("archives", { kinds: [KIND.archive], "#t": [TOPIC] }, addNote);
+const sourcesOf = (kind: ListKind, pubkey: string) =>
+  kind === "player"
+    ? [paged(`archives:${pubkey}`, { kinds: [KIND.archive], "#p": [pubkey] }, addNote)]
+    : kind === "games"
+      ? [archivePages()]
+      : kind === "leaderboard"
+        ? [
+            archivePages(),
+            ...(RATERS.length
+              ? [
+                  paged(
+                    "assertions",
+                    { kinds: [KIND.rating], authors: RATERS, "#t": [TOPIC] },
+                    addAssertion,
+                  ),
+                ]
+              : []),
+          ]
+        : [paged("lobbies", { kinds: [KIND.game], "#t": [TOPIC] }, addLobby)];
+
+/** How many rows the lobby and a player's page show before "Show all". */
+export const FIRST_PAGE = 10;
+export type ListKind = "games" | "live" | "open" | "leaderboard" | "player";
+export type ListModel = {
+  kind: ListKind;
+  pubkey: string;
+  results: Verdict[];
+  live: (Seek & { guest: string })[];
+  seeks: Seek[];
+  ranks: { pubkey: string; speed: Speed; rating: Rating }[];
+  loading: boolean;
+  done: boolean;
+};
+/** A whole list on its own page, which asks the relay for older items as it is scrolled. */
+function list(kind: ListKind, pubkey = ""): Route {
+  const sources = sourcesOf(kind, pubkey);
+  const more = () => sources.forEach((source) => source.more());
+  more();
+  return {
+    name: "list",
+    view() {
+      const finished = audited().results.filter((verdict) => verdict.result !== "*");
+      const { live, seeks } = games();
+      return {
+        kind,
+        pubkey,
+        results: kind === "player" ? finished.filter((v) => v.players.includes(pubkey)) : finished,
+        live,
+        seeks: seeks.filter((seek) => !seek.mine),
+        ranks: kind === "leaderboard" ? ranks() : [],
+        loading: sources.some((source) => source.state === "loading"),
+        done: sources.every((source) => source.state === "done"),
+      };
+    },
+    act(action) {
+      if (action === "more") more();
+    },
+    leave() {},
   };
 }
 
@@ -517,8 +691,21 @@ export type LobbyModel = {
   ranks: { pubkey: string; speed: Speed; rating: Rating }[];
   /** The time control of a quick seek on its way to the relay. */
   pending: string | null;
-  /** `sats` is a bot's price a game, `plays` whether it takes the terms picked. */
-  bots: { pubkey: string; rating?: Rating; sats: number; plays: boolean }[];
+  /**
+   * `sats` is a bot's price a game, `plays` whether it takes the terms picked, `record` how it has
+   * kept its challenges, and `capped` whether it asks more than the cap for bots without a record.
+   */
+  bots: {
+    pubkey: string;
+    rating?: Rating;
+    sats: number;
+    plays: boolean;
+    record: string;
+    capped: boolean;
+    /** From its status event: offline, or online with how many of its tables are free. */
+    status: { online: boolean; free: number; max: number };
+  }[];
+  newBotCap: number;
   tc: string;
   rated: boolean;
   level: number;
@@ -558,7 +745,15 @@ function lobby(): Route {
   }
 
   function start(challenged?: string) {
-    openGame(net, localStorage, { tc, rated }, challenged).then(
+    const fee = challenged ? who(challenged).fee?.msat : 0;
+    const wait = !challenged
+      ? WAIT.seek
+      : !isBot(challenged)
+        ? WAIT.challenge
+        : fee
+          ? WAIT.paidBot
+          : WAIT.bot;
+    openGame(net, localStorage, { tc, rated }, challenged, wait).then(
       (gameId) => (location.hash = `#/${me}/${gameId}`),
       (reason) => {
         error = `The relay didn't take the game: ${reason instanceof Error ? reason.message : reason}`;
@@ -581,25 +776,24 @@ function lobby(): Route {
       return {
         ...games(),
         pending: pending && !pending.cancel ? pending.tc : null,
-        results: results.filter((verdict) => verdict.result !== "*").slice(0, 30),
+        results: results.filter((verdict) => verdict.result !== "*"),
         checking,
         doubted,
-        ranks: [...table]
-          .filter(([pubkey]) => !isBot(pubkey))
-          .flatMap(([pubkey, speeds]) =>
-            Object.entries(speeds).map(([speed, rating]) => ({
-              pubkey,
-              speed: speed as Speed,
-              rating,
-            })),
-          )
-          .sort((a, b) => b.rating.r - a.rating.r),
-        bots: [...profiles.keys()].filter(isBot).map((pubkey) => ({
-          pubkey,
-          rating: table.get(pubkey)?.[speedOf(tc)!],
-          sats: (who(pubkey).fee?.msat ?? 0) / 1000,
-          plays: covers(who(pubkey), { tc, rated }),
-        })),
+        ranks: ranks(),
+        bots: [...profiles.keys()].filter(isBot).map((pubkey) => {
+          const sats = (who(pubkey).fee?.msat ?? 0) / 1000;
+          const record = recordOf(pubkey);
+          return {
+            pubkey,
+            rating: table.get(pubkey)?.[speedOf(tc)!],
+            sats,
+            plays: covers(who(pubkey), { tc, rated }),
+            record: describeReliability(record, true),
+            capped: unproven(record) && sats > settings.newBotCap,
+            status: readStatus(statuses.get(pubkey), nowSec()),
+          };
+        }),
+        newBotCap: settings.newBotCap,
         tc,
         rated,
         level,
@@ -866,6 +1060,8 @@ export type ProfileModel = {
   check: { ok: boolean; detail: string } | null;
   zaps: Zap[];
   games: Verdict[];
+  /** How the player has started and kept its games. */
+  record: string;
 };
 function profile(pubkey: string): Route {
   const receipts = new Map<string, GameEvent>();
@@ -885,9 +1081,8 @@ function profile(pubkey: string): Route {
         .zaps(receipts.values())
         .filter((z) => z.to === pubkey)
         .sort((a, b) => b.at - a.at),
-      games: audited()
-        .results.filter((v) => v.result !== "*" && v.players.includes(pubkey))
-        .slice(0, 20),
+      games: audited().results.filter((v) => v.result !== "*" && v.players.includes(pubkey)),
+      record: describeReliability(recordOf(pubkey), isBot(pubkey)),
     }),
     /** Verify: every archive on the relay is audited again and the player's assertion recomputed. */
     act(action) {
@@ -997,19 +1192,30 @@ export function navigate() {
     followRelayHint(relay);
     return location.reload();
   }
-  const [, shown] = hash.match(/^#\/player\/([0-9a-f]{64})$/) ?? [];
+  const [, shown, all] = hash.match(/^#\/player\/([0-9a-f]{64})(\/games)?$/) ?? [];
+  const [, listed] = hash.match(/^#\/(games(?:\/live|\/open)?|leaderboard)$/) ?? [];
+  const kinds: Record<string, ListKind> = {
+    games: "games",
+    "games/live": "live",
+    "games/open": "open",
+    leaderboard: "leaderboard",
+  };
   const home = hash === "" || hash === "#" || hash === "#/";
   route = level
     ? computer(level)
-    : shown
-      ? profile(shown)
-      : host
-        ? game(host, gameId)
-        : hash === "#/settings"
-          ? simple("settings")
-          : hash === "#/about" || (home && !localStorage.getItem(WELCOMED))
-            ? landing()
-            : lobby();
+    : all
+      ? list("player", shown)
+      : listed
+        ? list(kinds[listed])
+        : shown
+          ? profile(shown)
+          : host
+            ? game(host, gameId)
+            : hash === "#/settings"
+              ? simple("settings")
+              : hash === "#/about" || (home && !localStorage.getItem(WELCOMED))
+                ? landing()
+                : lobby();
   window.scrollTo(0, 0);
   paint();
   if (anchor) reveal(anchor);

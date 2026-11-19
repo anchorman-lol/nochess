@@ -45,8 +45,14 @@ test("landing, lobby, game, settings, zaps, a paid bot and an invoice render wit
   const game = white.url();
 
   /** Shoots `page` at each width and scheme; `url` reloads it first, without one an open sheet stays. */
-  const shoot = async (name: string, ready: string, url?: string, page = white) => {
-    for (const width of WIDTHS)
+  const shoot = async (
+    name: string,
+    ready: string,
+    url?: string,
+    page = white,
+    widths = WIDTHS,
+  ) => {
+    for (const width of widths)
       for (const colorScheme of SCHEMES) {
         await page.setViewportSize({ width, height: width > 600 ? 900 : 844 });
         await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
@@ -67,6 +73,11 @@ test("landing, lobby, game, settings, zaps, a paid bot and an invoice render wit
   await shoot("lobby", "[data-testid=relay-status]", "/#/play");
   await shoot("game", "[data-testid=chat]", game);
   await shoot("settings", "[data-testid=settings-chat]", "/#/settings");
+  await shoot("games", "[data-testid=list-rows]", "/#/games");
+  await shoot("leaderboard", "[data-testid=list-rows]", "/#/leaderboard");
+
+  const [first] = await sitDown(watch(await player(browser)), watch(await player(browser)));
+  await shoot("first-move", "[data-testid=first-move-countdown]", undefined, first);
 
   await guest.goto("/#/settings#profile");
   const editor = guest.getByTestId("profile-editor");
@@ -102,11 +113,19 @@ test("landing, lobby, game, settings, zaps, a paid bot and an invoice render wit
   const challenger = watch(await player(browser));
   await challenger.goto("/#/play");
   await challenger.getByRole("tab", { name: "A bot" }).click();
+  await shoot(
+    "lobby-bots",
+    "[data-testid=bot-record]",
+    undefined,
+    challenger,
+    [1440, 1024, 768, 390],
+  );
   await challenger
     .getByTestId("bots")
     .locator("li", { hasText: "Paybot" })
     .getByTestId("challenge-bot")
     .click();
+  await shoot("waiting", "[data-testid=join-countdown]", undefined, challenger);
   await challenger.getByTestId("pay-fee").click();
   await shoot("paid-bot", "[data-testid=zap-go]", undefined, challenger);
   paybot.kill();

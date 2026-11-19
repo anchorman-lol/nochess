@@ -15,30 +15,28 @@ import { Player } from "./common.tsx";
 const LABELS: Record<Room, string> = { players: "Players", spectators: "Spectators" };
 
 /**
- * A game's chat: the players' room and the spectators' room. Players speak in quick phrases
- * while the game runs and freely after; they meet the spectators' room only once it is over.
+ * A game's chat: the players' room and the spectators' room. Players write freely, with quick
+ * phrases one tap away, and meet the spectators' room only once the game is over.
  */
 export function Chat({
   lines,
   error,
   players,
   phase,
-  endedAt,
 }: {
   lines: ChatLine[];
   error: string;
   players: string[];
   phase: Phase;
-  endedAt: number;
 }) {
   const rooms = roomsFor(me, players, phase);
   const [picked, setPicked] = useState<Room>(rooms[0]);
   const room = rooms.includes(picked) ? picked : rooms[0];
   const list = useRef<HTMLOListElement>(null);
-  const visible = shown(lines, { room, players, phase, endedAt, muted: settings.muted });
+  const visible = shown(lines, { room, players, muted: settings.muted });
   const player = players.includes(me);
   const writable = room === "spectators" ? !player || phase === "finished" : player;
-  const phrasesOnly = room === "players" && phase !== "finished";
+  const phrases = room === "players" && phase !== "finished";
   const send = (text: string) => route?.act("chat", { room, text });
   useEffect(() => {
     list.current?.scrollTo({ top: list.current.scrollHeight });
@@ -71,6 +69,12 @@ export function Chat({
           </button>
         ))}
       </div>
+      <p
+        className="border-b border-line px-3 py-1 text-[0.78rem] text-muted-foreground"
+        data-testid="chat-public"
+      >
+        Chat is public: anyone reading this relay sees it.
+      </p>
       <ol ref={list} className="min-h-28 flex-1 overflow-y-auto px-3 py-2" aria-live="polite">
         {visible.map((line) => (
           <li
@@ -103,7 +107,7 @@ export function Chat({
       </ol>
       {writable && (
         <div className="grid gap-1.5 border-t border-line p-2">
-          {phrasesOnly ? (
+          {phrases && (
             <div className="flex flex-wrap gap-1">
               {PHRASES.map((phrase) => (
                 <button
@@ -117,23 +121,20 @@ export function Chat({
                 </button>
               ))}
             </div>
-          ) : (
-            <form onSubmit={submit}>
-              <input
-                name="chat"
-                maxLength={MAX_LENGTH}
-                autoComplete="off"
-                placeholder={
-                  room === "players"
-                    ? "Say something to your opponent"
-                    : "Say something to the room"
-                }
-                aria-label="Chat message"
-                data-testid="chat-input"
-                className="h-9 w-full rounded-md border border-line bg-background px-2.5 text-[0.9rem] placeholder:text-muted-foreground"
-              />
-            </form>
           )}
+          <form onSubmit={submit}>
+            <input
+              name="chat"
+              maxLength={MAX_LENGTH}
+              autoComplete="off"
+              placeholder={
+                room === "players" ? "Say something to your opponent" : "Say something to the room"
+              }
+              aria-label="Chat message"
+              data-testid="chat-input"
+              className="h-9 w-full rounded-md border border-line bg-background px-2.5 text-[0.9rem] placeholder:text-muted-foreground"
+            />
+          </form>
           {error && <p className={cn("text-[0.82rem] text-bad")}>{error}</p>}
         </div>
       )}

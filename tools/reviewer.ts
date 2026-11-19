@@ -26,7 +26,12 @@ const me = net.signer.pubkey;
 const engine = new Engine(enginePipe());
 
 /** Reviews both players of a game, leaving out `skip`; `paidBy` is the receipt that asked for it. */
-async function review(verdict: Verdict, skip: Set<string>, depth: number, paidBy?: string) {
+async function review(
+  verdict: Verdict,
+  skip: { has(pubkey: string): boolean },
+  depth: number,
+  paidBy?: string,
+) {
   const chess = new Chess();
   const seen: { best: string; cp: number; forced: boolean; played: string }[] = [];
   for (const san of [...verdict.sans, null]) {

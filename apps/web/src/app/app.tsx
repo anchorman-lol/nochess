@@ -9,6 +9,7 @@ const ComputerPage = lazy(() =>
 );
 const GamePage = lazy(() => import("../pages/game.tsx").then((m) => ({ default: m.GamePage })));
 const Landing = lazy(() => import("../pages/landing.tsx").then((m) => ({ default: m.Landing })));
+const ListPage = lazy(() => import("../pages/lists.tsx").then((m) => ({ default: m.ListPage })));
 const Lobby = lazy(() => import("../pages/lobby.tsx").then((m) => ({ default: m.Lobby })));
 const ProfilePage = lazy(() =>
   import("../pages/profile.tsx").then((m) => ({ default: m.ProfilePage })),
@@ -71,6 +72,8 @@ function Page() {
       return <ComputerPage model={route.view()} />;
     case "settings":
       return <SettingsPage />;
+    case "list":
+      return <ListPage model={route.view()} />;
     default:
       return null;
   }

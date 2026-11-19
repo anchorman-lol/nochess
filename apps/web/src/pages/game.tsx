@@ -4,7 +4,7 @@ import { Icon } from "@luft/ui/components/icon";
 import { cn } from "cn";
 import { FEE_RULE, type GameModel, me, route, settings, status, zapSheet } from "../app/store.ts";
 import { Chat } from "../components/chat.tsx";
-import { Clock } from "../components/clock.tsx";
+import { Clock, Countdown } from "../components/clock.tsx";
 import {
   Avatar,
   Hint,
@@ -33,7 +33,16 @@ export function GamePage({ model }: { model: GameModel }) {
   if (!model.loaded) return <Note>Looking for the game…</Note>;
   if (game.phase === "missing")
     return <Note testid="missing">There is no such game on this relay.</Note>;
-  if (game.phase === "cancelled") return <Note testid="cancelled">This seek was withdrawn.</Note>;
+  if (game.phase === "cancelled")
+    return (
+      <Note testid="cancelled">
+        {game.ending === "expired"
+          ? "Nobody joined in time, so this challenge was withdrawn."
+          : game.ending.startsWith("declined")
+            ? `The challenge was declined: ${game.ending.slice("declined: ".length)}.`
+            : "This seek was withdrawn."}
+      </Note>
+    );
   if (game.phase === "open") return <Waiting model={model} />;
   const over = game.phase === "finished";
   const top = (model.board.flipped ? 0 : 1) as Seat;
@@ -46,12 +55,12 @@ export function GamePage({ model }: { model: GameModel }) {
       sheet={
         <Scoresheet
           moves={model.moves}
-          empty="The first two moves are not timed."
+          empty="The clock starts after both first moves. Each has its own short limit."
           result={
             over && (
               <Outcome
                 score={game.result === "*" ? "" : game.result!.replaceAll("1/2", "½")}
-                text={outcomeText(game.result!, game.termination)}
+                text={outcomeText(game.result!, game.termination, game.noStart)}
               />
             )
           }
@@ -126,6 +135,13 @@ function Controls({ model }: { model: GameModel }) {
             ? "Your move."
             : `Waiting for ${SIDES[turn]}.`}
       </p>
+      {game.startBy !== null && (
+        <p className="text-[0.9rem] text-muted-foreground" data-testid="first-move">
+          {seat === turn ? "Make your first move" : `${SIDES[turn]}'s first move is due`} within{" "}
+          <Countdown until={game.startBy} testid="first-move-countdown" />, or the game is aborted,
+          unrated, on the side that didn't move.
+        </p>
+      )}
       {game.drawOffer !== null && game.drawOffer !== seat && (
         <p className="rounded-md bg-brand-soft px-3 py-2 font-semibold" data-testid="draw-offered">
           {SIDES[game.drawOffer]} offers a draw.
@@ -314,7 +330,6 @@ function Slip({ model }: { model: GameModel }) {
           error={model.chat.error}
           players={game.players ?? []}
           phase={game.phase === "finished" ? "finished" : "playing"}
-          endedAt={game.endedAt}
         />
       )}
     </>
@@ -336,6 +351,12 @@ function Waiting({ model }: { model: GameModel }) {
         <p className="text-muted-foreground">
           {terms(game.tc, game.rated)}. Colours are drawn when the game starts.
         </p>
+        {game.joinBy !== null && (
+          <p data-testid="join-by">
+            Withdrawn on its own in <Countdown until={game.joinBy} testid="join-countdown" /> if
+            nobody joins.
+          </p>
+        )}
         {model.fee &&
           (model.fee.paid ? (
             <p data-testid="fee-paid">
@@ -396,6 +417,11 @@ function Waiting({ model }: { model: GameModel }) {
       <p className="text-muted-foreground">
         {terms(game.tc, game.rated)}. Colours are drawn when the game starts.
       </p>
+      {game.joinBy !== null && (
+        <p data-testid="join-by">
+          Open for <Countdown until={game.joinBy} testid="join-countdown" /> more.
+        </p>
+      )}
       {allowed ? (
         <button
           type="button"

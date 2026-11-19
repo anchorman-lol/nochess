@@ -9,6 +9,7 @@ import {
   TOPIC,
 } from "./events.ts";
 import { ratedGames, type Rating, ratings, START } from "./glicko.ts";
+import type { Reliability } from "./reliability.ts";
 
 type Speeds = Partial<Record<Speed, Rating>>;
 /** The rated games a rater worked from: how many, the hash of their addresses in rating order, and when the last one ended. */
@@ -19,7 +20,9 @@ export type Asserted = {
   at: number;
   speeds: Speeds;
   cover: Cover | null;
+  reliability: Reliability | null;
 };
+const RECORD = ["asked", "answered", "median", "games", "abandoned", "unspent"] as const;
 
 export function coverOf(verdicts: Verdict[]): Cover {
   const games = ratedGames(verdicts);
@@ -30,8 +33,17 @@ export function coverOf(verdicts: Verdict[]): Cover {
   };
 }
 
-/** A rater's statement of one player's ratings (NIP-85 kind 30382), with the games it rests on. */
-export const assertion = (player: string, speeds: Speeds, cover: Cover, now: number): Template => ({
+/**
+ * A rater's statement of one player's ratings (NIP-85 kind 30382), with the games it rests on, and
+ * optionally how reliably the player has started and kept its games.
+ */
+export const assertion = (
+  player: string,
+  speeds: Speeds,
+  cover: Cover,
+  now: number,
+  record?: Reliability,
+): Template => ({
   kind: KIND.rating,
   created_at: now,
   content: "",
@@ -45,6 +57,7 @@ export const assertion = (player: string, speeds: Speeds, cover: Cover, now: num
       [`rd:${speed}`, String(Math.round(rd))],
       [`games:${speed}`, String(games)],
     ]),
+    ...(record ? [["reliability", ...RECORD.map((name) => String(record[name] ?? ""))]] : []),
   ],
 });
 
@@ -63,12 +76,18 @@ export function readAssertion(event: GameEvent): Asserted | null {
       };
   }
   const [, count, hash, until] = event.tags.find((tag) => tag[0] === "covers") ?? [];
+  const [, ...record] = event.tags.find((tag) => tag[0] === "reliability") ?? [];
   return {
     rater: event.pubkey,
     player,
     at: event.created_at,
     speeds,
     cover: hash ? { count: Number(count), hash, until: Number(until) } : null,
+    reliability: record.length
+      ? (Object.fromEntries(
+          RECORD.map((name, i) => [name, record[i] ? Number(record[i]) : null]),
+        ) as Reliability)
+      : null,
   };
 }
 

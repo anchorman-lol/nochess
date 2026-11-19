@@ -46,3 +46,17 @@ export function Clock({
     </span>
   );
 }
+
+/** Time left until `until` (seconds since the epoch), ticking each second and stopping at 0:00. */
+export function Countdown({ until, testid }: { until: number; testid: string }) {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return (
+    <b data-testid={testid} className="tabular-nums">
+      {clockText(Math.max(0, until * 1000 - now), false)}
+    </b>
+  );
+}

@@ -23,33 +23,21 @@ export function mayWrite(
   const trimmed = text.trim();
   if (!trimmed || trimmed.length > MAX_LENGTH) return false;
   if (!roomsFor(me, players, phase).includes(room)) return false;
-  if (room === "players") {
-    if (!isPlayer(me, players)) return false;
-    return phase === "finished" || PHRASES.includes(trimmed);
-  }
-  return true;
+  return room === "spectators" || isPlayer(me, players);
 }
 
-/**
- * A line counts if its author could have written it: only players speak in the players' room,
- * and before the game ended only in quick phrases. Other clients can't sneak free text in.
- */
-export function readable(line: ChatLine, players: string[], phase: Phase, endedAt: number) {
-  if (line.room === "spectators") return true;
-  if (!isPlayer(line.from, players)) return false;
-  return PHRASES.includes(line.text) || (phase === "finished" && line.at >= endedAt);
-}
+/** A line counts if its author could have written it: only players speak in the players' room. */
+export const readable = (line: ChatLine, players: string[]) =>
+  line.room === "spectators" || isPlayer(line.from, players);
 
 export const shown = (
   lines: ChatLine[],
-  view: { room: Room; players: string[]; phase: Phase; endedAt: number; muted: string[] },
+  view: { room: Room; players: string[]; muted: string[] },
 ) =>
   lines
     .filter(
       (line) =>
-        line.room === view.room &&
-        !view.muted.includes(line.from) &&
-        readable(line, view.players, view.phase, view.endedAt),
+        line.room === view.room && !view.muted.includes(line.from) && readable(line, view.players),
     )
     .sort((a, b) => a.at - b.at);
 

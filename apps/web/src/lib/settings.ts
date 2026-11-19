@@ -16,6 +16,8 @@ export type Settings = {
   chat: boolean;
   /** Keys whose chat lines this browser hides. */
   muted: string[];
+  /** The most a bot without a record may charge for a game here, in sats. */
+  newBotCap: number;
 };
 type Store = Pick<Storage, "getItem" | "setItem">;
 
@@ -31,6 +33,7 @@ export const DEFAULTS: Settings = {
   musicWas: false,
   chat: true,
   muted: [],
+  newBotCap: 100,
 };
 
 const oneOf = <T extends string>(options: readonly T[], value: unknown, fallback: T): T =>
@@ -56,6 +59,10 @@ export function loadSettings(store: Store): Settings {
     musicVolume: level(raw.musicVolume, DEFAULTS.musicVolume),
     musicWas: flag(raw.musicWas, DEFAULTS.musicWas),
     chat: flag(raw.chat, DEFAULTS.chat),
+    newBotCap:
+      typeof raw.newBotCap === "number" && raw.newBotCap >= 0
+        ? Math.floor(raw.newBotCap)
+        : DEFAULTS.newBotCap,
     muted: Array.isArray(raw.muted)
       ? [
           ...new Set(

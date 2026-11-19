@@ -2,6 +2,7 @@ import { Icon } from "@luft/ui/components/icon";
 import { cn } from "cn";
 import * as nip19 from "nostr-tools/nip19";
 import {
+  FIRST_PAGE,
   me,
   type ProfileModel,
   route,
@@ -24,7 +25,7 @@ import {
 import { btn } from "../components/table.tsx";
 import { mute } from "../lib/settings.ts";
 import { gameHref, plural, satsTo, shortKey } from "../lib/format.ts";
-import { ResultRow } from "./lobby.tsx";
+import { ResultRow, ShowAll } from "../components/rows.tsx";
 
 export function ProfilePage({ model }: { model: ProfileModel }) {
   const { pubkey, zaps } = model;
@@ -58,6 +59,11 @@ export function ProfilePage({ model }: { model: ProfileModel }) {
               {fee.role === "bot" ? " a game" : ""}.
             </p>
           ) : null}
+          {model.record && (
+            <p className="text-[0.92rem] first-letter:uppercase" data-testid="record">
+              {model.record}.
+            </p>
+          )}
         </div>
         <div className="zaps flex flex-wrap items-center gap-2">
           {lud16 || lud06 ? (
@@ -146,10 +152,13 @@ export function ProfilePage({ model }: { model: ProfileModel }) {
               )
             )}
           </Section>
-          <Section title="Games">
+          <Section
+            title="Games"
+            aside={<ShowAll href={`#/player/${pubkey}/games`} count={model.games.length} />}
+          >
             <List className="results">
               {model.games.length ? (
-                model.games.map((v) => <ResultRow key={v.addr} verdict={v} />)
+                model.games.slice(0, FIRST_PAGE).map((v) => <ResultRow key={v.addr} verdict={v} />)
               ) : (
                 <None>No finished game yet.</None>
               )}

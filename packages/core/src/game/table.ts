@@ -10,7 +10,6 @@ import {
   type GameEvent,
   hashHex,
   KIND,
-  SEEK_TTL,
   tagValue,
   type Template,
   type Terms,
@@ -28,8 +27,14 @@ const nowSec = () => Math.floor(Date.now() / 1000);
 export const sessionKey = (addr: string) => `luft:session:${addr}`;
 const saltKey = (addr: string) => `luft:salt:${addr}`;
 
-/** Opens a seek, or a challenge to one player, and returns its game id. */
-export async function openGame(net: Net, store: Store, terms: Terms, challenged?: string) {
+/** Opens a seek, or a challenge to one player, waiting `wait` seconds for the join; returns its game id. */
+export async function openGame(
+  net: Net,
+  store: Store,
+  terms: Terms,
+  challenged?: string,
+  wait?: number,
+) {
   const gameId = bytesToHex(randomBytes(4));
   const addr = address(net.signer.pubkey, gameId);
   const secret = generateSecretKey();
@@ -37,15 +42,16 @@ export async function openGame(net: Net, store: Store, terms: Terms, challenged?
   store.setItem(sessionKey(addr), bytesToHex(secret));
   store.setItem(saltKey(addr), salt);
   await net.publish(
-    build.open(gameId, terms, keySigner(secret).pubkey, hashHex(salt), nowSec(), challenged),
+    build.open(gameId, terms, keySigner(secret).pubkey, hashHex(salt), nowSec(), challenged, wait),
   );
   return gameId;
 }
 
 /**
  * One game as one participant or spectator sees it. It follows the relay, replays what arrives and
- * does what a player's client owes the game without being asked: the host admits a guest, a
- * player claims a flag that has fallen and publishes the archive when the game is over.
+ * does what a player's client owes the game without being asked: the host admits a guest in time
+ * or withdraws, a player claims a flag that has fallen or aborts a game whose first move didn't
+ * come, and publishes the archive when the game is over.
  */
 export class Table {
   game: Game;
@@ -54,6 +60,8 @@ export class Table {
   labels: GameEvent[] = [];
   /** Zap receipts that name this game, unchecked. */
   receipts: GameEvent[] = [];
+  /** Why the relay closed this table's subscription, if it did. */
+  refused = "";
   readonly addr: string;
   private net: Net;
   private store: Store;
@@ -82,6 +90,10 @@ export class Table {
       () => {
         this.loaded = true;
         this.tick();
+      },
+      (reason) => {
+        this.refused = reason;
+        this.onChange();
       },
     );
     const timer = setInterval(() => this.tick(), 1000);
@@ -133,37 +145,40 @@ export class Table {
     const session = this.session();
     const lobby = [...this.events.values()].findLast((event) => event.kind === KIND.game);
     const salt = this.store.getItem(saltKey(this.addr));
-    const hosting = game.phase === "open" && game.host === this.me && lobby;
+    /** A challenge the other side declined is still open on the relay until the host withdraws it. */
+    const declined =
+      game.ending.startsWith("declined") && !!lobby && tagValue(lobby, "status") === "open";
+    const hosting = (game.phase === "open" || declined) && game.host === this.me && lobby;
     const at = Math.max(now, (lobby?.created_at ?? 0) + 1);
-    if (hosting && this.withdrawn)
-      this.send("cancel", build.cancelled(game.gameId, game, at), this.net.signer);
-    else if (hosting && session && salt && this.loaded) {
-      if (game.join)
-        this.send(
-          "playing",
-          build.playing(game.gameId, game, session.pubkey, salt, game.join, at),
-          this.net.signer,
-        );
-      else if (now - lobby.created_at > SEEK_TTL - 300)
-        this.send(
-          `open:${lobby.created_at}`,
-          build.open(
-            game.gameId,
-            game,
-            session.pubkey,
-            hashHex(salt),
-            at,
-            game.challenged ?? undefined,
-          ),
-          this.net.signer,
-        );
-    }
+    const expired = this.loaded && game.joinBy !== null && now > game.joinBy && !game.join;
+    if (hosting && (this.withdrawn || expired || declined))
+      this.send(
+        "cancel",
+        build.cancelled(
+          game.gameId,
+          game,
+          at,
+          this.withdrawn || declined || !game.challenged
+            ? undefined
+            : { challenged: game.challenged, reason: "expired" },
+        ),
+        this.net.signer,
+      );
+    else if (hosting && session && salt && this.loaded && game.join)
+      this.send(
+        "playing",
+        build.playing(game.gameId, game, session.pubkey, salt, game.join, at, lobby.created_at),
+        this.net.signer,
+      );
     const seat = this.seat();
     if (seat !== null && session) {
-      const flagged = game.deadline !== null && turnOf(game) !== seat && now > game.deadline + 1;
-      if (game.phase === "playing" && flagged) this.act("claim-time");
+      const due = game.startBy ?? game.deadline;
+      const mineToMove = turnOf(game) === seat;
+      if (game.phase === "playing" && due !== null && now > due + 1)
+        if (!mineToMove) this.act("claim-time");
+        else if (game.startBy !== null) this.act("abort");
       const mine = this.archives.some((note) => note.pubkey === this.me);
-      if (game.phase === "finished" && game.result !== "*" && this.loaded && !mine)
+      if (game.phase === "finished" && this.loaded && !mine)
         this.send("archive", archive(game, this.net.url, now), this.net.signer);
     }
     this.onChange();
@@ -190,7 +205,7 @@ export class Table {
     );
   }
 
-  /** Withdraws my seek while it is open. From here on this table admits nobody and renews nothing. */
+  /** Withdraws my seek while it is open. From here on this table admits nobody. */
   cancel() {
     this.withdrawn = true;
     this.tick();

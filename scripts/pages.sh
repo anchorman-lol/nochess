@@ -1,5 +1,6 @@
 #!/bin/sh
-# Builds the web app for production and force-pushes it to the gh-pages branch of origin.
+# Builds the web app for production and force-pushes it to the gh-pages branch of origin. VITE_*
+# from the shell are dropped, so the build's settings are only those in apps/web/.env.production.
 set -eu
 for name in $(env | sed -n 's/^\(VITE_[A-Z_]*\)=.*/\1/p'); do unset "$name"; done
 remote=$(git remote get-url origin)
