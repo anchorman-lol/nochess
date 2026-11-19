@@ -7,13 +7,14 @@ import type { Pipe } from "../src/engine/uci.ts";
 import { auditAll } from "../src/game/archive.ts";
 import { KIND, profileOf, TOPIC } from "../src/game/events.ts";
 import { keySigner, Net } from "../src/nostr/net.ts";
+import { payPoint } from "../src/zap/lnurl.ts";
 
 export const RELAY = process.env.LUFT_RELAY ?? "ws://127.0.0.1:7778";
 export const nowSec = () => Math.floor(Date.now() / 1000);
 export const short = (pubkey: string) => pubkey.slice(0, 8);
 
 /** The key of a service: LUFT_<NAME>_KEY, or a file under .keys/ that is made on first use. */
-export function connect(name: string): Net {
+export function secretOf(name: string): Uint8Array {
   const file = `.keys/${name}.hex`;
   let hex = process.env[`LUFT_${name.toUpperCase()}_KEY`];
   if (!hex && existsSync(file)) hex = readFileSync(file, "utf8").trim();
@@ -22,8 +23,9 @@ export function connect(name: string): Net {
     mkdirSync(".keys", { recursive: true });
     writeFileSync(file, hex, { mode: 0o600 });
   }
-  return new Net(RELAY, keySigner(hexToBytes(hex)));
+  return hexToBytes(hex);
 }
+export const connect = (name: string) => new Net(RELAY, keySigner(secretOf(name)));
 
 /** Stockfish's WASM build as a child process that speaks UCI on its standard streams. */
 export function enginePipe(): Pipe {
@@ -45,4 +47,15 @@ export async function finishedGames(net: Net) {
   ]);
   const bots = new Set(profiles.filter((event) => profileOf(event).bot).map((e) => e.pubkey));
   return { verdicts: auditAll(notes), bots };
+}
+
+/** The pay endpoint a priced service is paid at, waited for while its provider starts; without one the service can't check receipts and stops. */
+export async function servicePoint(lud16: string) {
+  for (let tries = 0; tries < 30; tries++) {
+    const point = await payPoint({ lud16, lud06: "" }).catch(() => null);
+    if (point) return point;
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  console.error(`a price needs a lightning address at a provider that does zaps, not "${lud16}"`);
+  process.exit(1);
 }

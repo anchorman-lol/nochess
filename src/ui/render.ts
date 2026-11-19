@@ -1,8 +1,11 @@
 import * as nip19 from "nostr-tools/nip19";
+import { renderSVG } from "uqr";
 import type { Verdict } from "../game/archive.ts";
 import { parseTc, type Profile, type Speed, speedOf } from "../game/events.ts";
 import { PROVISIONAL_RD, type Rating } from "../game/glicko.ts";
 import { type Game, type Seat, turnOf } from "../game/replay.ts";
+import { MAX_SHARE, type Sheet } from "../zap/sheet.ts";
+import type { Zap } from "../zap/zap.ts";
 
 export const TIME_CONTROLS = [
   "180+2",
@@ -17,6 +20,11 @@ export const TIME_CONTROLS = [
 ];
 const SIDES = ["White", "Black"];
 const PROMOTIONS = ["q", "n", "r", "b"];
+const ZAP_AMOUNTS = [21, 100, 500, 1000];
+export const FEE_RULE =
+  "The fee is spent when the bot joins. If it never joins, the same payment covers your next challenge to it. There are no refunds.";
+export const REVIEW_RULE =
+  "The reviewer analyses the game once it sees your payment and publishes its labels here. A label says what an engine measured, never that someone cheated. There are no refunds.";
 const ICONS = {
   first: "M18 6l-6 6 6 6M7 6v12",
   prev: "M15 6l-6 6 6 6",
@@ -27,6 +35,7 @@ const ICONS = {
   abort: "M6 6l12 12M18 6L6 18",
   sun: "M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z",
   moon: "M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z",
+  zap: "M13 2L4 14h7l-1 8 9-12h-7l1-8z",
 };
 const icon = (name: keyof typeof ICONS) =>
   `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[name]}"/></svg>`;
@@ -62,13 +71,16 @@ export type HomeModel = {
   checking: boolean;
   doubted: number;
   ranks: { pubkey: string; speed: Speed; rating: Rating }[];
-  bots: { pubkey: string; rating?: Rating }[];
+  /** `sats` is a bot's price a game, `plays` whether it takes the terms picked. */
+  bots: { pubkey: string; rating?: Rating; sats: number; plays: boolean }[];
   who: Who;
   rate: Rate;
   tc: string;
   rated: boolean;
   level: number;
   error: string;
+  /** How zaps from this browser are paid; empty if every invoice has to be shown. */
+  wallet: string;
 };
 export type Moves = { sans: string[]; ply: number };
 export type GameModel = {
@@ -85,7 +97,20 @@ export type GameModel = {
   joining: boolean;
   confirming: boolean;
   signed: number;
-  labels: { reviewer: string; label: string; detail: string }[];
+  labels: { reviewer: string; label: string; detail: string; paid: boolean }[];
+  /** Checked zaps that name this game. */
+  zaps: Zap[];
+  /** What the challenged bot charges, and whether a receipt for this game covers it. */
+  fee: { sats: number; paid: boolean } | null;
+  reviewers: { pubkey: string; sats: number; requested: boolean }[];
+};
+export type ProfileModel = {
+  pubkey: string;
+  me: string;
+  who: Who;
+  ratings: Partial<Record<Speed, Rating>>;
+  zaps: Zap[];
+  games: Verdict[];
 };
 export type ComputerModel = {
   board: Board;
@@ -116,10 +141,27 @@ const player = (pubkey: string, who: Who, me = "") => {
   const { name, bot } = who(pubkey);
   return `${bot ? '<b class="bot">BOT</b> ' : ""}${esc(name || shortKey(pubkey))}${pubkey === me ? " (you)" : ""}`;
 };
+const profileLink = (pubkey: string, who: Who, me = "") =>
+  `<a class="who-link" href="#/player/${pubkey}">${player(pubkey, who, me)}</a>`;
 const href = (seek: { host: string; gameId: string }) => `#/${seek.host}/${seek.gameId}`;
+const gameHref = (addr: string) => `#/${addr.split(":").slice(1).join("/")}`;
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+const satsTo = (zaps: Zap[], pubkeys: string[]) =>
+  zaps.reduce((sum, zap) => sum + (pubkeys.includes(zap.to) ? zap.msat : 0), 0) / 1000;
+const zapped = (sats: number) =>
+  sats
+    ? `<span class="zapped" data-testid="zapped" title="${plural(sats, "sat")} zapped">${icon("zap")}${sats}</span>`
+    : "";
+const zapButton = (to: string[], addr = "", label = "", sats = 0) =>
+  `<button class="zap${label ? "" : " ghost"}" data-action="zap" data-to="${to.join(",")}" data-addr="${addr}" data-testid="zap" aria-label="Zap" title="Zap${
+    sats ? `: ${plural(sats, "sat")} so far` : ""
+  }">${icon("zap")}${sats ? `<span data-testid="zapped">${sats}</span>` : ""}${label}</button>`;
 
-export const shell = (body: string, status: { online: boolean; relay: string; dark: boolean }) => `
+export const shell = (
+  body: string,
+  status: { online: boolean; relay: string; dark: boolean },
+  sheet = "",
+) => `
   <header>
     <a class="brand" href="#/" data-testid="home">${LOGO}<span>Luft</span></a>
     <span class="relay ${status.online ? "on" : "off"}" data-testid="relay-status" title="${esc(status.relay)}">${
@@ -127,7 +169,7 @@ export const shell = (body: string, status: { online: boolean; relay: string; da
     }</span>
     <button class="ghost theme" data-action="theme" data-testid="theme" aria-label="Switch to ${status.dark ? "light" : "dark"} theme" title="Switch to ${status.dark ? "light" : "dark"} theme">${icon(status.dark ? "sun" : "moon")}</button>
   </header>
-  <main>${body}</main>`;
+  <main>${body}</main>${sheet}`;
 
 export function boardView(board: Board): string {
   const rows = board.fen.split(" ")[0].split("/");
@@ -217,6 +259,9 @@ const banner = (score: string, text: string) =>
 const card = (seat: Seat, name: string, rating: string, clock: string, active: boolean) =>
   `<div class="player${active ? " active" : ""}" data-testid="seat-${seat}"><span class="side ${SIDES[seat].toLowerCase()}" title="${SIDES[seat]}"></span><span class="name">${name}</span>${rating}${clock}</div>`;
 
+const resultRow = (v: Verdict, who: Who, me: string) =>
+  `<li><a href="${gameHref(v.addr)}"><span class="who">${player(v.players[0], who, me)} <b class="score">${v.result.replaceAll("1/2", "½")}</b> ${player(v.players[1], who, me)}</span><span class="terms">${v.termination} · ${terms(v.tc, v.rated)}</span></a></li>`;
+
 export function homeView(model: HomeModel): string {
   const { me, who, rate } = model;
   const options = [...new Set([...TIME_CONTROLS, model.tc])]
@@ -281,11 +326,15 @@ export function homeView(model: HomeModel): string {
           model.bots
             .map(
               (bot) =>
-                `<li><span class="who">${player(bot.pubkey, who)}${bot.rating ? ` <span class="rating">${showRating(bot.rating)}</span>` : ""}</span><button data-action="challenge-bot" data-pubkey="${bot.pubkey}" data-testid="challenge-bot" title="Challenge to ${terms(model.tc, model.rated)}">Challenge</button></li>`,
+                `<li><span class="who">${profileLink(bot.pubkey, who)}${bot.rating ? ` <span class="rating">${showRating(bot.rating)}</span>` : ""}</span><button data-action="challenge-bot" data-pubkey="${bot.pubkey}" data-testid="challenge-bot" title="${
+                  bot.plays
+                    ? `Challenge to ${terms(model.tc, model.rated)}`
+                    : `Doesn't play ${terms(model.tc, model.rated)}`
+                }"${bot.plays ? "" : " disabled"}>Challenge${bot.sats ? ` · ${plural(bot.sats, "sat")}` : ""}</button></li>`,
             )
             .join("") || none("No bot account is online on this relay.")
         }</ul>
-        <p class="hint">${terms(model.tc, model.rated)}. A human's rating moves half as far against a bot.</p>
+        <p class="hint">${terms(model.tc, model.rated)}. A human's rating moves half as far against a bot. A bot that names a price joins once you have paid it.</p>
       </section>
       ${model.error ? `<p class="error" data-testid="error">${esc(model.error)}</p>` : ""}
     </aside>
@@ -309,12 +358,7 @@ export function homeView(model: HomeModel): string {
                 : ""
             }`
       }</p>
-      <ul class="list results" data-testid="results">${model.results
-        .map(
-          (v) =>
-            `<li><a href="#/${v.addr.split(":").slice(1).join("/")}"><span class="who">${player(v.players[0], who, me)} <b class="score">${v.result.replaceAll("1/2", "½")}</b> ${player(v.players[1], who, me)}</span><span class="terms">${v.termination} · ${terms(v.tc, v.rated)}</span></a></li>`,
-        )
-        .join("")}</ul>
+      <ul class="list results" data-testid="results">${model.results.map((v) => resultRow(v, who, me)).join("")}</ul>
     </section>
     <section class="ranks">
       <h2>Leaderboard</h2>
@@ -322,15 +366,31 @@ export function homeView(model: HomeModel): string {
         model.ranks
           .map(
             ({ pubkey, speed, rating }) =>
-              `<li><span class="who">${player(pubkey, who, me)}</span><span class="terms">${speed} · ${plural(rating.games, "game")}</span><b class="rating">${showRating(rating)}</b></li>`,
+              `<li><span class="who">${profileLink(pubkey, who, me)}</span><span class="terms">${speed} · ${plural(rating.games, "game")}</span><b class="rating">${showRating(rating)}</b></li>`,
           )
           .join("") || none("No rated game yet.")
       }</ol>
       <p class="hint">Glicko-2, computed in your browser from the checked rated games. A question mark means provisional. Bots are rated, not ranked.</p>
       <div class="you">
-        <p>You are <code title="${nip19.npubEncode(me)}" data-testid="me">${shortKey(me)}</code>, signing with ${
+        <p>You are <a href="#/player/${me}"><code title="${nip19.npubEncode(me)}" data-testid="me">${shortKey(me)}</code></a>, signing with ${
           model.source === "extension" ? "your Nostr extension" : "a key kept in this browser"
         }.</p>
+        <details class="wallet"><summary>Zaps: your address and wallet</summary>
+          ${
+            model.source === "extension"
+              ? `<p class="hint">Zaps to you go to the lightning address in your Nostr profile${
+                  who(me).lud16 ? `, ${esc(who(me).lud16)}` : "; this relay has none for your key"
+                }.</p>`
+              : `<form class="row" data-form="lud16"><input name="lud16" value="${esc(who(me).lud16)}" placeholder="you@wallet.example" aria-label="Lightning address" data-testid="lud16"><button>Save</button></form>
+          <p class="hint">Where zaps to you go. It is published in your profile on this relay.</p>`
+          }
+          <form class="row" data-form="nwc"><input name="nwc" type="password" placeholder="nostr+walletconnect://…" aria-label="Nostr Wallet Connect" data-testid="nwc"><button>Connect</button></form>
+          <p class="hint" data-testid="wallet">${
+            model.wallet
+              ? `Zaps are paid with ${model.wallet}.`
+              : "No wallet connected: a zap shows its invoice as text and QR."
+          } An empty connection forgets the wallet.</p>
+        </details>
         <details class="key"><summary>Use another key</summary>
           <form class="row" data-form="key"><input name="key" type="password" placeholder="nsec1…" aria-label="Secret key"><button>Use this key</button></form>
         </details>
@@ -349,10 +409,13 @@ function seatCard(model: GameModel, seat: Seat): string {
     : live
       ? `<span class="clock" data-left="${game.clocks[seat]}" data-testid="clock-${seat}"></span>`
       : "";
+  const sats = satsTo(model.zaps, [pubkey]);
   return card(
     seat,
-    player(pubkey, who, me),
-    ratingOf(rate, pubkey, game.tc),
+    profileLink(pubkey, who, me),
+    `${ratingOf(rate, pubkey, game.tc)}${
+      pubkey === me ? zapped(sats) : zapButton([pubkey], game.addr, "", sats)
+    }`,
     clock,
     game.phase === "playing" && turnOf(game) === seat,
   );
@@ -361,10 +424,15 @@ function seatCard(model: GameModel, seat: Seat): string {
 function lobbyCard(model: GameModel): string {
   const { game, me, who } = model;
   const share = `<div class="share"><input readonly value="${esc(model.shareUrl)}" aria-label="Link to this game"><button data-action="copy">${model.copied ? "Copied" : "Copy link"}</button></div>`;
+  const fee = !model.fee
+    ? ""
+    : model.fee.paid
+      ? `<p data-testid="fee-paid">Paid. ${player(game.challenged!, who)} joins when it has checked the receipt.</p>`
+      : `<button class="primary big" data-action="pay-fee" data-testid="pay-fee">${icon("zap")}Pay ${plural(model.fee.sats, "sat")} to start</button><p class="hint">${FEE_RULE}</p>`;
   if (game.host === me)
     return `<section class="panel" data-testid="waiting"><div class="pulse" aria-hidden="true"></div><h2>Waiting for ${
       game.challenged ? player(game.challenged, who) : "an opponent"
-    }</h2><p class="terms">${terms(game.tc, game.rated)}. Colours are drawn when the game starts.</p>${share}<p class="hint">Anyone with the link can join${
+    }</h2><p class="terms">${terms(game.tc, game.rated)}. Colours are drawn when the game starts.</p>${fee && `<div class="fee">${fee}</div>`}${share}<p class="hint">Anyone with the link can join${
       game.challenged ? " if they hold the challenged key" : ""
     }. The seek also shows in the lobby.</p></section>`;
   const allowed = !game.challenged || game.challenged === me;
@@ -442,10 +510,30 @@ export function gameView(model: GameModel): string {
     ? `<ul class="labels" data-testid="labels">${model.labels
         .map(
           (label) =>
-            `<li><b class="${esc(label.label)}">${esc(label.label)}</b> ${esc(label.detail)} <small>reviewer ${shortKey(label.reviewer)}</small></li>`,
+            `<li><b class="${esc(label.label)}">${esc(label.label)}</b> ${esc(label.detail)} <small>${label.paid ? "paid review by" : "reviewer"} ${player(label.reviewer, model.who)}</small></li>`,
         )
         .join("")}</ul>`
     : "";
+  const players = game.players!;
+  const others = players.filter((pubkey) => pubkey !== model.me);
+  const winner = game.result === "1-0" ? players[0] : game.result === "0-1" ? players[1] : null;
+  const total = satsTo(model.zaps, players);
+  const zaps = `<div class="zaps" data-testid="game-zaps">${
+    total
+      ? `<span class="zapped">${icon("zap")}${plural(total, "sat")} zapped on this game</span>`
+      : ""
+  }${
+    seat !== null
+      ? zapButton(others, game.addr, "Zap your opponent")
+      : `${winner ? zapButton([winner], game.addr, "Zap the winner") : ""}${zapButton(players, game.addr, "Zap both players")}`
+  }</div>`;
+  const reviews = model.reviewers
+    .map((reviewer) =>
+      reviewer.requested
+        ? `<p class="hint" data-testid="review-requested">Review paid for. ${player(reviewer.pubkey, model.who)} publishes its labels here.</p>`
+        : `<button data-action="request-review" data-pubkey="${reviewer.pubkey}" data-testid="request-review">Request a review (${plural(reviewer.sats, "sat")})</button>`,
+    )
+    .join("");
   const result = over
     ? banner(
         game.result === "*" ? "" : game.result!.replaceAll("1/2", "½"),
@@ -457,7 +545,7 @@ export function gameView(model: GameModel): string {
     { seat: String(seat ?? ""), turn: over ? "" : String(turn) },
     model.board,
     [seatCard(model, top), seatCard(model, (1 - top) as Seat)],
-    `<p class="terms">${terms(game.tc, game.rated)}</p>${navBar(model.moves)}${moveList(model.moves, result, "The first two moves are not timed.")}${status}${offer}${controls}${archive}${labels}`,
+    `<p class="terms">${terms(game.tc, game.rated)}</p>${navBar(model.moves)}${moveList(model.moves, result, "The first two moves are not timed.")}${status}${offer}${controls}${zaps}${archive}${reviews}${labels}`,
   );
 }
 
@@ -493,3 +581,105 @@ export const computerOutcome = (checkmate: boolean, winner: Seat): [string, stri
   checkmate
     ? [winner === 0 ? "1-0" : "0-1", outcomeText(winner === 0 ? "1-0" : "0-1", "checkmate")]
     : ["½-½", "Draw"];
+
+export function profileView(model: ProfileModel): string {
+  const { pubkey, me, who, zaps } = model;
+  const { fee, lud16, lud06 } = who(pubkey);
+  const ratings = Object.entries(model.ratings)
+    .map(
+      ([speed, rating]) =>
+        `<li><span class="who">${speed}</span><span class="terms">${plural(rating.games, "game")}</span><b class="rating">${showRating(rating)}</b></li>`,
+    )
+    .join("");
+  return `
+  <section class="profile" data-testid="profile">
+    <h2>${player(pubkey, who, me)}</h2>
+    <p><code>${nip19.npubEncode(pubkey)}</code></p>
+    ${
+      fee?.msat
+        ? `<p>${fee.role === "bot" ? "Plays" : "Reviews a game"} for ${plural(fee.msat / 1000, "sat")}${fee.role === "bot" ? " a game" : ""}.</p>`
+        : ""
+    }
+    <div class="zaps">${
+      lud16 || lud06
+        ? `<span class="zapped" data-testid="received">${icon("zap")}${plural(satsTo(zaps, [pubkey]), "sat")} in ${plural(zaps.length, "zap")}</span>${pubkey === me ? "" : zapButton([pubkey], "", "Zap")}`
+        : '<span class="hint">No lightning address, so no zaps.</span>'
+    }</div>
+    <h3>Ratings</h3>
+    <ul class="list">${ratings || '<li class="none">No rated game yet.</li>'}</ul>
+    <h3>Zaps received</h3>
+    <ul class="list" data-testid="zaps">${
+      zaps
+        .map(
+          (zap) =>
+            `<li><span class="who">${zapped(zap.msat / 1000)} from ${player(zap.from, who, me)}</span>${
+              zap.addr ? `<a class="terms" href="${gameHref(zap.addr)}">for a game</a>` : ""
+            }${zap.comment ? `<span class="terms">${esc(zap.comment)}</span>` : ""}</li>`,
+        )
+        .join("") || '<li class="none">None yet.</li>'
+    }</ul>
+    <h3>Games</h3>
+    <ul class="list results">${model.games.map((v) => resultRow(v, who, me)).join("") || '<li class="none">No finished game yet.</li>'}</ul>
+  </section>`;
+}
+
+/** The zap dialog: the amount and who gets what, then one invoice per receiver until its receipt arrives. */
+export function sheetView(sheet: Sheet, who: Who, platform: string | null, wallet: string): string {
+  const total = sheet.lines.reduce((sum, line) => sum + line.sats, 0);
+  const done = sheet.lines.every((line) => line.state === "paid");
+  const state = {
+    new: sheet.paying ? "asking for an invoice…" : "",
+    open: "paying…",
+    sent: "paid, waiting for the receipt…",
+    paid: "zapped",
+    failed: "failed",
+  };
+  const lines = sheet.lines
+    .map(
+      (line, i) =>
+        `<li data-testid="zap-line" data-state="${line.state}"><span class="who">${player(line.pubkey, who)}${
+          line.pubkey === platform ? " (the platform's share)" : ""
+        }</span><b>${plural(line.sats, "sat")}</b><span class="terms">${
+          line.manual && line.state === "open" ? "waiting for your payment…" : state[line.state]
+        }</span>${line.error ? `<p class="error">${esc(line.error)}</p>` : ""}${
+          line.manual && line.bolt11 && line.state !== "paid"
+            ? `<div class="invoice"><a href="lightning:${line.bolt11}" aria-label="Open in a wallet">${renderSVG(line.bolt11.toUpperCase(), { border: 2 })}</a><input readonly value="${line.bolt11}" aria-label="Lightning invoice" data-testid="bolt11"><button data-action="zap-copy" data-i="${i}">Copy</button></div>`
+            : ""
+        }</li>`,
+    )
+    .join("");
+  const [, without] = sheet.error.match(/^no-address (.+)$/) ?? [];
+  const amounts = sheet.fee
+    ? ""
+    : `<div class="amounts">${ZAP_AMOUNTS.map(
+        (sats) =>
+          `<button data-action="zap-sats" data-sats="${sats}"${sats === sheet.sats ? ' class="current"' : ""}>${sats}</button>`,
+      ).join(
+        "",
+      )}<input name="zap-sats" type="number" min="1" value="${sheet.sats}" aria-label="Sats" data-testid="zap-sats"><span>sats</span></div>${
+        platform
+          ? `<label class="share-of">Luft's share <input name="zap-percent" type="number" min="0" max="${MAX_SHARE}" value="${sheet.percent}" data-testid="zap-percent"> %</label><p class="hint">Each receiver gets a zap of their own. Set the share to 0 and everything goes to the players.</p>`
+          : ""
+      }`;
+  return `<div class="sheet-back" data-action="zap-dismiss"><section class="sheet" role="dialog" aria-label="${esc(sheet.title)}" data-testid="zap-sheet">
+    <h2>${esc(sheet.title)}</h2>
+    ${sheet.note ? `<p class="hint">${sheet.note}</p>` : ""}
+    ${sheet.paying ? "" : amounts}
+    <ul class="list">${lines}</ul>
+    <p class="hint">${
+      wallet
+        ? `Paid with ${wallet}.`
+        : "No wallet connected: you get each invoice as text and QR, and the zap shows when its receipt arrives."
+    }</p>
+    ${
+      without
+        ? `<p class="error" data-testid="zap-error">${player(without, who)} has no lightning address that takes zaps.</p>`
+        : ""
+    }
+    <div class="controls">${
+      sheet.paying
+        ? `<button class="${done ? "primary" : ""}" data-action="zap-close" data-testid="zap-close">${done ? "Done" : "Close"}</button>`
+        : `<button class="primary" data-action="zap-go" data-testid="zap-go">${icon("zap")}${sheet.fee ? "Pay" : "Zap"} ${plural(total, "sat")}</button><button data-action="zap-close">Cancel</button>`
+    }</div>
+  </section></div>`;
+}

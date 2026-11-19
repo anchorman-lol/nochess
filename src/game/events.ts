@@ -8,6 +8,8 @@ export const KIND = {
   move: 1641,
   action: 1642,
   label: 1985,
+  zapRequest: 9734,
+  zap: 9735,
   game: 30064,
   rating: 30382,
 } as const;
@@ -117,7 +119,10 @@ export const build = {
       ["-"],
     ],
   }),
-  /** Repeats the terms and the seed it saw, so the host can change neither afterwards. */
+  /**
+   * Repeats the terms and the seed it saw, so the host can change neither afterwards. A paid bot
+   * names the zap receipt that bought the game in `paidBy`, which spends it.
+   */
   join: (
     addr: string,
     host: string,
@@ -125,11 +130,19 @@ export const build = {
     session: string,
     seed: string,
     now: number,
+    paidBy?: string,
   ): Template => ({
     kind: KIND.join,
     created_at: now,
     content: "",
-    tags: [["a", addr], ["p", host], ...termTags(terms), ["session", session], ["seed", seed]],
+    tags: [
+      ["a", addr],
+      ["p", host],
+      ...termTags(terms),
+      ["session", session],
+      ["seed", seed],
+      ...(paidBy ? [["e", paidBy]] : []),
+    ],
   }),
   /** Tag order is fixed: an archive rebuilds this event from the SAN, the time and the signature. */
   move: (addr: string, ply: number, prev: string, san: string, fen: string, now: number) => ({
@@ -156,13 +169,43 @@ export const build = {
   }),
 };
 
-export type Profile = { name: string; bot: boolean };
-/** Name and the NIP-24 bot flag from a kind 0 event. */
+/** What a bot or reviewer charges per game, in millisats, and which games it takes. */
+export type Fee = {
+  role: "bot" | "review";
+  msat: number;
+  speeds: string[] | null;
+  rated: boolean;
+  casual: boolean;
+};
+export type Profile = { name: string; bot: boolean; lud16: string; lud06: string; fee: Fee | null };
+export const NOBODY: Profile = { name: "", bot: false, lud16: "", lud06: "", fee: null };
+
+/** Name, the NIP-24 bot flag, the lightning address and the `luft` fee block of a kind 0 event. */
 export function profileOf(event: Pick<GameEvent, "content">): Profile {
   try {
-    const { name, bot } = JSON.parse(event.content);
-    return { name: typeof name === "string" ? name.slice(0, 40) : "", bot: bot === true };
+    const { name, bot, lud16, lud06, luft } = JSON.parse(event.content);
+    const text = (value: unknown) => (typeof value === "string" ? value.trim() : "");
+    const priced = (luft?.role === "bot" || luft?.role === "review") && luft.price_msat >= 0;
+    return {
+      name: text(name).slice(0, 40),
+      bot: bot === true,
+      lud16: text(lud16),
+      lud06: text(lud06),
+      fee: priced
+        ? {
+            role: luft.role,
+            msat: Math.floor(luft.price_msat),
+            speeds: Array.isArray(luft.speeds) ? luft.speeds.map(String) : null,
+            rated: luft.rated !== false,
+            casual: luft.casual !== false,
+          }
+        : null,
+    };
   } catch {
-    return { name: "", bot: false };
+    return NOBODY;
   }
 }
+
+/** Whether a service takes a game on these terms; one that names no fee block takes any. */
+export const covers = ({ fee }: Profile, { tc, rated }: Terms) =>
+  !fee || ((fee.speeds?.includes(speedOf(tc) ?? "") ?? true) && (rated ? fee.rated : fee.casual));

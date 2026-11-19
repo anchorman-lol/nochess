@@ -4,8 +4,10 @@ import { Engine, LEVELS, workerPipe } from "./engine/uci.ts";
 import { audit, type Verdict } from "./game/archive.ts";
 import {
   address,
+  covers,
   type GameEvent,
   KIND,
+  NOBODY,
   type Profile,
   profileOf,
   speedOf,
@@ -32,12 +34,20 @@ import {
   type Board,
   computerOutcome,
   computerView,
+  FEE_RULE,
   gameView,
   homeView,
   type Moves,
+  profileView,
+  REVIEW_RULE,
   type Seek,
+  sheetView,
   shell,
+  shortKey,
 } from "./ui/render.ts";
+import { payUrl } from "./zap/lnurl.ts";
+import { zapper } from "./zap/sheet.ts";
+import { setNwc, walletName } from "./zap/wallet.ts";
 
 /** What the board needs from a game: its moves, my side, and a way to play. */
 type Play = {
@@ -57,6 +67,13 @@ type Route = {
 type Drag = { from: string; x: number; y: number; ghost: HTMLElement | null; was: boolean };
 
 const LIVE_FOR = 6 * 60 * 60;
+/** Who gets the platform's share of a zap: both set, or there is no share. */
+const PLATFORM: { pubkey: string; lud16: string } | null =
+  import.meta.env.VITE_PLATFORM_PUBKEY && import.meta.env.VITE_PLATFORM_LUD16
+    ? { pubkey: import.meta.env.VITE_PLATFORM_PUBKEY, lud16: import.meta.env.VITE_PLATFORM_LUD16 }
+    : null;
+const DEV_WALLET: string = import.meta.env.VITE_DEV_WALLET ?? "";
+if (DEV_WALLET) (await import("./zap/devwallet.ts")).install(DEV_WALLET);
 const app = document.querySelector<HTMLElement>("#app")!;
 const root = document.documentElement;
 const nowSec = () => Math.floor(Date.now() / 1000);
@@ -65,16 +82,39 @@ const signer = await loadSigner();
 const me = signer.pubkey;
 const net = new Net(relayUrl(), signer, () => paint());
 const profiles = new Map<string, GameEvent>();
-const who = (pubkey: string): Profile => {
-  const event = profiles.get(pubkey);
-  return event ? profileOf(event) : { name: "", bot: false };
-};
-const isBot = (pubkey: string) => who(pubkey).bot;
-net.subscribe([{ kinds: [KIND.profile], "#t": [TOPIC] }], (event) => {
+const wanted = new Set<string>();
+let asking: string[] = [];
+const keep = (event: GameEvent) => {
   if ((profiles.get(event.pubkey)?.created_at ?? -1) < event.created_at)
     profiles.set(event.pubkey, event);
   paint();
-});
+};
+/** A profile without Luft's topic tag, a human's from another client, is asked for once it is shown. */
+function need(pubkey: string) {
+  if (wanted.has(pubkey)) return;
+  wanted.add(pubkey);
+  if (!asking.length)
+    queueMicrotask(() => {
+      const authors = asking;
+      asking = [];
+      net.fetch([{ kinds: [KIND.profile], authors }]).then(
+        (events) => events.forEach(keep),
+        () => authors.forEach((author) => wanted.delete(author)),
+      );
+    });
+  asking.push(pubkey);
+}
+const who = (pubkey: string): Profile => {
+  if (pubkey === PLATFORM?.pubkey) return { ...NOBODY, name: "Luft", lud16: PLATFORM.lud16 };
+  const event = profiles.get(pubkey);
+  if (!event) need(pubkey);
+  return event ? profileOf(event) : NOBODY;
+};
+const isBot = (pubkey: string) => who(pubkey).bot;
+net.subscribe([{ kinds: [KIND.profile], "#t": [TOPIC] }], keep);
+const zap = zapper(net, who, PLATFORM?.pubkey ?? null, () => paint());
+const wallet = () => (DEV_WALLET && window.webln ? "the dev wallet (play money)" : walletName());
+const nameOf = (pubkey: string) => who(pubkey).name || shortKey(pubkey);
 
 /** Every archived game, audited one at a time so a long list never freezes the page. */
 const notes = new Map<string, GameEvent>();
@@ -138,11 +178,11 @@ function fresh() {
 function paint() {
   if (!route) return;
   if (route.play) sync(route.play);
-  const html = shell(route.view(), {
-    online: net.online,
-    relay: net.url,
-    dark: root.dataset.theme === "dark",
-  });
+  const html = shell(
+    route.view(),
+    { online: net.online, relay: net.url, dark: root.dataset.theme === "dark" },
+    zap.sheet ? sheetView(zap.sheet, who, PLATFORM?.pubkey ?? null, wallet()) : "",
+  );
   if (html === painted) return;
   painted = html;
   const active = document.activeElement;
@@ -362,13 +402,17 @@ function home(): Route {
             })),
           )
           .sort((a, b) => b.rating.r - a.rating.r),
-        bots: [...profiles.keys()]
-          .filter(isBot)
-          .map((pubkey) => ({ pubkey, rating: table.get(pubkey)?.[speedOf(tc)!] })),
+        bots: [...profiles.keys()].filter(isBot).map((pubkey) => ({
+          pubkey,
+          rating: table.get(pubkey)?.[speedOf(tc)!],
+          sats: (who(pubkey).fee?.msat ?? 0) / 1000,
+          plays: covers(who(pubkey), { tc, rated }),
+        })),
         tc,
         rated,
         level,
         error,
+        wallet: wallet(),
       });
     },
     act(action, target) {
@@ -391,10 +435,30 @@ function home(): Route {
       paint();
     },
     submit(form, value) {
+      error = "";
       if (form === "challenge") {
         const pubkey = parsePubkey(value);
         if (pubkey && pubkey !== me) return start(pubkey);
         error = "That isn't another player's npub.";
+      } else if (form === "lud16") {
+        if (value && !payUrl({ lud16: value, lud06: "" }))
+          error = "That isn't a lightning address: it looks like name@wallet.example.";
+        else {
+          let old = {};
+          try {
+            old = JSON.parse(profiles.get(me)?.content ?? "{}");
+          } catch {
+            // a profile that isn't JSON is replaced
+          }
+          void net.publish({
+            kind: KIND.profile,
+            created_at: nowSec(),
+            tags: [["t", TOPIC]],
+            content: JSON.stringify({ ...old, lud16: value || undefined }),
+          });
+        }
+      } else if (form === "nwc") {
+        if (!setNwc(value)) error = "That isn't a Nostr Wallet Connect link.";
       } else if (form === "key" && importKey(value)) return location.reload();
       else error = "That isn't a secret key: it should start with nsec1 or be 64 hex characters.";
       paint();
@@ -423,10 +487,14 @@ function game(host: string, gameId: string): Route {
   return {
     play,
     view() {
-      const players: string[] = table.game.players ?? [];
+      const { game } = table;
+      const players: string[] = game.players ?? [];
       const { moves, ...board } = boardOf(play);
+      const zaps = zap.zaps(table.receipts).filter((z) => z.addr === table.addr);
+      const botFee = game.challenged ? who(game.challenged).fee : null;
+      const answered = new Set(table.labels.map((label) => tagValue(label, "e")));
       return gameView({
-        game: table.game,
+        game,
         me,
         seat: table.seat(),
         loaded: table.loaded,
@@ -441,6 +509,24 @@ function game(host: string, gameId: string): Route {
         signed: new Set(
           table.archives.map((note) => note.pubkey).filter((key) => players.includes(key)),
         ).size,
+        zaps,
+        fee:
+          botFee && game.phase === "open" && host === me
+            ? {
+                sats: botFee.msat / 1000,
+                paid: zaps.some((z) => z.to === game.challenged && z.msat >= botFee.msat),
+              }
+            : null,
+        reviewers:
+          game.phase === "finished" && game.result !== "*"
+            ? reviewers().map(([pubkey, fee]) => ({
+                pubkey,
+                sats: fee.msat / 1000,
+                requested: zaps.some(
+                  (z) => z.to === pubkey && z.msat >= fee.msat && !answered.has(z.id),
+                ),
+              }))
+            : [],
         labels: table.labels.map((label) => {
           let detail = "";
           try {
@@ -454,14 +540,27 @@ function game(host: string, gameId: string): Route {
             reviewer: label.pubkey,
             label: tagValue(label, "l") ?? "",
             detail: `${["White", "Black"][seat] ?? ""}: ${detail}`,
+            paid: zaps.some((z) => z.id === tagValue(label, "e") && z.to === label.pubkey),
           };
         }),
       });
     },
-    act(action) {
+    act(action, target) {
       clearTimeout(unconfirm);
       confirming = false;
-      if (action === "join") {
+      const service = action === "pay-fee" ? table.game.challenged! : target.dataset.pubkey!;
+      if (action === "pay-fee" || action === "request-review")
+        zap.open({
+          title:
+            action === "pay-fee"
+              ? `Pay ${nameOf(service)} to play`
+              : `Ask ${nameOf(service)} for a review`,
+          note: action === "pay-fee" ? FEE_RULE : REVIEW_RULE,
+          to: [service],
+          addr: table.addr,
+          fee: who(service).fee!.msat / 1000,
+        });
+      else if (action === "join") {
         joining = true;
         table.join();
       } else if (action === "copy") {
@@ -482,6 +581,39 @@ function game(host: string, gameId: string): Route {
       paint();
     },
     leave: () => table.close(),
+  };
+}
+
+/** The services that review a game for a price. */
+const reviewers = () =>
+  [...profiles.keys()].flatMap((pubkey) => {
+    const { fee } = who(pubkey);
+    return fee?.role === "review" && fee.msat ? [[pubkey, fee] as const] : [];
+  });
+
+function profile(pubkey: string): Route {
+  const receipts = new Map<string, GameEvent>();
+  const stop = net.subscribe([{ kinds: [KIND.zap], "#p": [pubkey], limit: 200 }], (event) => {
+    receipts.set(event.id, event);
+    paint();
+  });
+  return {
+    view: () =>
+      profileView({
+        pubkey,
+        me,
+        who,
+        ratings: ratingTable().get(pubkey) ?? {},
+        zaps: zap
+          .zaps(receipts.values())
+          .filter((z) => z.to === pubkey)
+          .sort((a, b) => b.at - a.at),
+        games: audited()
+          .results.filter((v) => v.result !== "*" && v.players.includes(pubkey))
+          .slice(0, 20),
+      }),
+    act() {},
+    leave: stop,
   };
 }
 
@@ -554,6 +686,7 @@ function computer(level: number): Route {
 
 function navigate() {
   route?.leave();
+  zap.act("zap-close", app);
   view = fresh();
   const level = Number(location.hash.match(/^#\/computer\/([1-8])$/)?.[1]);
   const { host, gameId, relay } = parseGameLink(location.hash);
@@ -561,7 +694,8 @@ function navigate() {
     followRelayHint(relay);
     return location.reload();
   }
-  route = level ? computer(level) : host ? game(host, gameId) : home();
+  const [, shown] = location.hash.match(/^#\/player\/([0-9a-f]{64})$/) ?? [];
+  route = level ? computer(level) : shown ? profile(shown) : host ? game(host, gameId) : home();
   paint();
 }
 
@@ -571,6 +705,15 @@ function boardAction(action: string, target: HTMLElement): boolean {
   if (action === "theme") {
     root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
     localStorage.setItem("luft:theme", root.dataset.theme);
+  } else if (action === "zap") {
+    const to = target.dataset.to!.split(",");
+    zap.open({
+      title: `Zap ${to.map(nameOf).join(" and ")}`,
+      to,
+      addr: target.dataset.addr || undefined,
+    });
+  } else if (zap.act(action === "zap-dismiss" ? "zap-close" : action, target)) {
+    // the sheet took it
   } else if (!play) return false;
   else if (action === "flip") view.flip = !view.flip;
   else if (action === "nav") navigateMoves(target.dataset.to!);
@@ -598,7 +741,7 @@ app.addEventListener("click", (event) => {
   }
   const target = element.closest<HTMLElement>("[data-action]");
   if (!target || (target as HTMLButtonElement).disabled) return;
-  if (target.dataset.action === "promote-cancel" && target !== element) return;
+  if (/^(promote-cancel|zap-dismiss)$/.test(target.dataset.action!) && target !== element) return;
   if (!boardAction(target.dataset.action!, target)) route?.act(target.dataset.action!, target);
 });
 
@@ -690,8 +833,9 @@ window.addEventListener("keydown", (event) => {
 
 app.addEventListener("change", (event) => {
   const { target } = event;
-  if (target instanceof HTMLSelectElement || target instanceof HTMLInputElement)
-    route?.change?.(target);
+  if (!(target instanceof HTMLSelectElement || target instanceof HTMLInputElement)) return;
+  if (zap.set(target.name, Number(target.value))) paint();
+  else route?.change?.(target);
 });
 app.addEventListener("submit", (event) => {
   event.preventDefault();

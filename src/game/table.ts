@@ -52,6 +52,8 @@ export class Table {
   loaded = false;
   archives: GameEvent[] = [];
   labels: GameEvent[] = [];
+  /** Zap receipts that name this game, unchecked. */
+  receipts: GameEvent[] = [];
   readonly addr: string;
   private net: Net;
   private store: Store;
@@ -70,7 +72,7 @@ export class Table {
       [
         { kinds: [KIND.game], authors: [host], "#d": [gameId] },
         {
-          kinds: [KIND.join, KIND.move, KIND.action, KIND.archive, KIND.label],
+          kinds: [KIND.join, KIND.move, KIND.action, KIND.archive, KIND.label, KIND.zap],
           "#a": [this.addr],
           limit: 2000,
         },
@@ -105,6 +107,7 @@ export class Table {
     this.events.set(event.id, event);
     if (event.kind === KIND.archive) this.archives.push(event);
     if (event.kind === KIND.label) this.labels.push(event);
+    if (event.kind === KIND.zap) this.receipts.push(event);
     this.tick();
   }
 
@@ -162,8 +165,8 @@ export class Table {
     this.onChange();
   }
 
-  /** Asks to join an open game under the terms and seed it shows. */
-  join() {
+  /** Asks to join an open game under the terms and seed it shows; `paidBy` is the receipt a paid bot spends on it. */
+  join(paidBy?: string) {
     const lobby = [...this.events.values()].findLast((event) => event.kind === KIND.game);
     if (this.game.phase !== "open" || !lobby || this.sent.has("join")) return;
     const secret = generateSecretKey();
@@ -177,6 +180,7 @@ export class Table {
         keySigner(secret).pubkey,
         tagValue(lobby, "seed") ?? "",
         nowSec(),
+        paidBy,
       ),
       this.net.signer,
     );

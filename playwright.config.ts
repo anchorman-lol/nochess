@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
+import { PLATFORM, RELAY, ZAP_HOST, ZAPMOCK_KEY } from "./e2e/play.ts";
 
-const RELAY_PORT = 7788;
 const WEB_PORT = 5188;
 
 export default defineConfig({
@@ -13,14 +13,29 @@ export default defineConfig({
   webServer: [
     {
       command: "scripts/relay.sh e2e/relay.e2e.json",
-      url: `http://127.0.0.1:${RELAY_PORT}`,
+      url: RELAY.replace("ws", "http"),
       timeout: 600_000,
+      reuseExistingServer: false,
+    },
+    {
+      command: "node tools/zapmock.ts",
+      url: `http://${ZAP_HOST}/.well-known/lnurlp/ready`,
+      env: {
+        LUFT_RELAY: RELAY,
+        LUFT_ZAP_PORT: ZAP_HOST.split(":")[1],
+        LUFT_ZAPMOCK_KEY: ZAPMOCK_KEY,
+      },
       reuseExistingServer: false,
     },
     {
       command: `pnpm exec vite --port ${WEB_PORT} --strictPort`,
       url: `http://127.0.0.1:${WEB_PORT}`,
-      env: { VITE_RELAY_URL: `ws://127.0.0.1:${RELAY_PORT}` },
+      env: {
+        VITE_RELAY_URL: RELAY,
+        VITE_DEV_WALLET: `http://${ZAP_HOST}`,
+        VITE_PLATFORM_LUD16: `luft@${ZAP_HOST}`,
+        VITE_PLATFORM_PUBKEY: PLATFORM,
+      },
       reuseExistingServer: false,
     },
   ],

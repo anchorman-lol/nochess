@@ -10,6 +10,7 @@
   --accent-soft: oklch(0.48 0.09 172 / 0.12);
   --bad: oklch(0.53 0.18 27);
   --bad-ink: oklch(0.99 0.01 27);
+  --zap: oklch(0.6 0.14 70);
   --sq-light: oklch(0.915 0.022 215);
   --sq-dark: oklch(0.645 0.052 228);
   --sq-last: oklch(0.86 0.13 88 / 0.5);
@@ -37,6 +38,7 @@
   --accent-soft: oklch(0.74 0.11 172 / 0.14);
   --bad: oklch(0.66 0.17 25);
   --bad-ink: oklch(0.18 0.03 25);
+  --zap: oklch(0.82 0.14 85);
   --sq-light: oklch(0.8 0.028 215);
   --sq-dark: oklch(0.56 0.05 228);
   --sq-last: oklch(0.82 0.13 88 / 0.45);
@@ -976,9 +978,138 @@ button:disabled {
 .you p {
   margin: 0 0 0.4rem;
 }
-.key summary {
+.key summary,
+.wallet summary {
   cursor: pointer;
   margin-bottom: 0.5rem;
+}
+.wallet .row {
+  margin-top: 0.5rem;
+}
+
+/* Zaps. */
+.who-link {
+  color: inherit;
+  text-decoration: none;
+}
+.who-link:hover {
+  text-decoration: underline;
+}
+.zapped {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  color: var(--zap);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+.zapped .icon,
+.zap .icon {
+  fill: currentColor;
+  stroke: none;
+  width: 1em;
+  height: 1em;
+}
+.zap.ghost {
+  min-height: 1.75rem;
+  padding: 0.15rem 0.35rem;
+  gap: 0.15rem;
+  color: var(--zap);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+.zaps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+}
+.sheet-back {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-drag);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: oklch(0.2 0.02 235 / 0.45);
+}
+.sheet {
+  width: min(100%, 27rem);
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 1.5rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+.sheet h2,
+.sheet .hint {
+  margin: 0;
+}
+.sheet .list li {
+  flex-wrap: wrap;
+  padding: 0.35rem 0;
+}
+.amounts,
+.share-of {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--muted);
+}
+.amounts input {
+  flex: 1;
+  min-width: 0;
+}
+.amounts .current {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.share-of input {
+  width: 4.5rem;
+}
+.invoice {
+  flex-basis: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem;
+}
+.invoice a {
+  grid-column: 1 / -1;
+  justify-self: center;
+  width: min(100%, 14rem);
+  line-height: 0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.invoice input {
+  min-width: 0;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 0.78rem;
+}
+.profile {
+  max-width: 40rem;
+  margin: 1rem auto;
+}
+.profile h2 {
+  font-size: 1.5rem;
+}
+.profile h3 {
+  margin-top: 1.5rem;
+}
+.profile code {
+  overflow-wrap: anywhere;
+  color: var(--muted);
+}
+.fee {
+  margin-bottom: 1.25rem;
 }
 
 @media (max-width: 900px) {
