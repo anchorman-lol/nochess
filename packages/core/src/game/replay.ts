@@ -7,6 +7,7 @@ import {
   hostIsWhite,
   KIND,
   parseTc,
+  sessionOf,
   speedOf,
   tagValue,
   termsOf,
@@ -128,11 +129,17 @@ export function replay(events: GameEvent[], host: string, gameId: string): Game 
     return game;
   }
 
-  const fits = (join: GameEvent) =>
-    join.pubkey !== host &&
-    termsOf(join).tc === terms.tc &&
-    termsOf(join).rated === terms.rated &&
-    Boolean(tagValue(join, "session"));
+  const hostSession = sessionOf(lobby, addr);
+  const fits = (join: GameEvent) => {
+    const session = sessionOf(join, addr);
+    return (
+      join.pubkey !== host &&
+      termsOf(join).tc === terms.tc &&
+      termsOf(join).rated === terms.rated &&
+      !!session &&
+      session !== hostSession
+    );
+  };
   const joins = about.filter((event) => event.kind === KIND.join && fits(event));
   if (tagValue(lobby, "status") === "open") {
     game.phase = "open";
@@ -149,7 +156,6 @@ export function replay(events: GameEvent[], host: string, gameId: string): Game 
 
   const join = joins.find((event) => event.id === tagValue(lobby, "e"));
   const salt = tagValue(lobby, "salt") ?? "";
-  const hostSession = tagValue(lobby, "session");
   if (
     !join ||
     !hostSession ||
@@ -161,7 +167,7 @@ export function replay(events: GameEvent[], host: string, gameId: string): Game 
   const players: [string, string] = [host, host];
   const sessions: [string, string] = [hostSession, hostSession];
   players[other(hostSeat)] = join.pubkey;
-  sessions[other(hostSeat)] = tagValue(join, "session")!;
+  sessions[other(hostSeat)] = sessionOf(join, addr)!;
   Object.assign(game, {
     phase: "playing",
     challenged: null,
