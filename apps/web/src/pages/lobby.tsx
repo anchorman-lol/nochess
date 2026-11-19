@@ -1,4 +1,4 @@
-import { parseTc, speedOf } from "@nochess/core/game/events.ts";
+import { parseTc, speedOf, WAIT } from "@nochess/core/game/events.ts";
 import { Icon } from "@nochess/ui/components/icon";
 import { Popover, PopoverContent, PopoverTrigger } from "@nochess/ui/components/popover";
 import { cn } from "cn";
@@ -6,6 +6,7 @@ import * as nip19 from "nostr-tools/nip19";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { FIRST_PAGE, type LobbyModel, me, route, source, who } from "../app/store.ts";
 import {
+  botTag,
   Hint,
   List,
   None,
@@ -26,6 +27,7 @@ const ROWS = [
   { speed: "Classical", note: "25 minutes and up", tcs: ["1800+0"] },
   { speed: "By post", note: "days a move", tcs: ["1d", "3d"] },
 ];
+const HOVER_MS = 120;
 const lobbyRoute = () => (route?.name === "lobby" ? route : null);
 const act = (action: string, data: Record<string, string> = {}) => lobbyRoute()?.act(action, data);
 const submit = (form: string) => (event: FormEvent<HTMLFormElement>) => {
@@ -401,8 +403,60 @@ function Times({ model }: { model: LobbyModel }) {
   );
 }
 
-const botStatus = ({ online, free, max }: LobbyModel["bots"][number]["status"]) =>
+type Bot = LobbyModel["bots"][number];
+
+const botStatus = ({ online, free, max }: Bot["status"]) =>
   !online ? "offline" : free ? `online, ${free} of ${max} free` : "online, every table busy";
+
+function blocked(bot: Bot, model: LobbyModel): ReactNode {
+  if (!bot.status.free)
+    return bot.status.online ? "Every table of this bot is busy." : "This bot is offline.";
+  if (bot.capped)
+    return (
+      <>
+        {plural(bot.sats, "sat")} is over your {model.newBotCap}-sat cap for bots without a record.{" "}
+        <a href="#/settings#bot-cap" className="font-semibold text-brand">
+          Raise it in Settings
+        </a>
+        .
+      </>
+    );
+  if (!bot.plays) return `Doesn't play ${terms(model.tc, model.rated)}.`;
+}
+
+/** A blocked challenge stays focusable and says why on hover, focus or tap. */
+function Challenge({ bot, model }: { bot: Bot; model: LobbyModel }) {
+  const why = blocked(bot, model);
+  const label = `Challenge${bot.sats ? ` · ${plural(bot.sats, "sat")}` : ""}`;
+  const className = cn(button, "h-8 shrink-0 text-[0.87rem]");
+  return why ? (
+    <Popover>
+      <PopoverTrigger
+        openOnHover
+        delay={HOVER_MS}
+        aria-disabled
+        className={cn(
+          className,
+          "cursor-help border-dashed text-muted-foreground opacity-60 hover:opacity-90 focus-visible:opacity-90 focus-visible:outline-2 focus-visible:outline-brand active:translate-y-0",
+        )}
+        data-testid="challenge-bot"
+      >
+        {label}
+      </PopoverTrigger>
+      <PopoverContent data-testid="challenge-blocked">{why}</PopoverContent>
+    </Popover>
+  ) : (
+    <button
+      type="button"
+      className={className}
+      data-testid="challenge-bot"
+      title={`Challenge to ${terms(model.tc, model.rated)}`}
+      onClick={() => act("challenge-bot", { pubkey: bot.pubkey })}
+    >
+      {label}
+    </button>
+  );
+}
 
 function Bots({ model }: { model: LobbyModel }) {
   return (
@@ -414,7 +468,42 @@ function Bots({ model }: { model: LobbyModel }) {
             <li key={bot.pubkey} className={cn(!bot.status.free && "opacity-60")}>
               <span className="grid min-w-0 flex-1">
                 <span className="flex min-w-0 items-center gap-2">
-                  <PlayerLink pubkey={bot.pubkey} />
+                  <Popover>
+                    <PopoverTrigger
+                      openOnHover
+                      delay={HOVER_MS}
+                      className={cn(
+                        botTag,
+                        "shrink-0 cursor-pointer hover:bg-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand",
+                      )}
+                      aria-label={`Record of ${who(bot.pubkey).name || "this bot"}`}
+                      data-testid="bot-info"
+                    >
+                      BOT
+                    </PopoverTrigger>
+                    <PopoverContent align="start" data-testid="bot-record">
+                      <p className="mb-1.5 font-semibold">
+                        <Player pubkey={bot.pubkey} tag={false} />
+                      </p>
+                      <ul className="grid gap-1 text-muted-foreground">
+                        <li>{botStatus(bot.status)}</li>
+                        {bot.rating && (
+                          <li>
+                            rated <ShowRating rating={bot.rating} /> at {speedOf(model.tc)}
+                          </li>
+                        )}
+                        {bot.record.split(" · ").map((line) => (
+                          <li key={line}>{line}</li>
+                        ))}
+                        <li>
+                          {bot.sats
+                            ? `Joins once you have paid ${plural(bot.sats, "sat")}; a challenge waits ${plural(WAIT.paidBot / 60, "minute")} for that.`
+                            : `A challenge waits ${plural(WAIT.bot / 60, "minute")} for it, then withdraws itself.`}
+                        </li>
+                      </ul>
+                    </PopoverContent>
+                  </Popover>
+                  <PlayerLink pubkey={bot.pubkey} tag={false} />
                   {bot.rating && (
                     <span className="rating text-muted-foreground tabular-nums">
                       <ShowRating rating={bot.rating} />
@@ -428,63 +517,14 @@ function Bots({ model }: { model: LobbyModel }) {
                   {botStatus(bot.status)}
                 </small>
               </span>
-              <Popover>
-                <PopoverTrigger
-                  className="-mx-1.5 grid size-9 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
-                  aria-label={`Record of ${who(bot.pubkey).name || "this bot"}`}
-                  data-testid="bot-info"
-                >
-                  <Icon name="info" />
-                </PopoverTrigger>
-                <PopoverContent data-testid="bot-record">
-                  <p className="mb-1.5 font-semibold">
-                    <Player pubkey={bot.pubkey} />
-                  </p>
-                  <ul className="grid gap-1 text-muted-foreground">
-                    <li>{botStatus(bot.status)}</li>
-                    {bot.rating && (
-                      <li>
-                        rated <ShowRating rating={bot.rating} /> at {speedOf(model.tc)}
-                      </li>
-                    )}
-                    {bot.record.split(" · ").map((line) => (
-                      <li key={line}>{line}</li>
-                    ))}
-                  </ul>
-                </PopoverContent>
-              </Popover>
-              <button
-                type="button"
-                className={cn(button, "h-8 shrink-0 text-[0.87rem]")}
-                data-testid="challenge-bot"
-                disabled={!bot.plays || bot.capped || !bot.status.free}
-                title={
-                  !bot.status.free
-                    ? bot.status.online
-                      ? "Every table of this bot is busy"
-                      : "This bot is offline"
-                    : bot.capped
-                      ? `Over your ${plural(model.newBotCap, "sat")} cap for bots without a record (Settings)`
-                      : bot.plays
-                        ? `Challenge to ${terms(model.tc, model.rated)}`
-                        : `Doesn't play ${terms(model.tc, model.rated)}`
-                }
-                onClick={() => act("challenge-bot", { pubkey: bot.pubkey })}
-              >
-                Challenge{bot.sats ? ` · ${plural(bot.sats, "sat")}` : ""}
-              </button>
+              <Challenge bot={bot} model={model} />
             </li>
           ))
         ) : (
           <None>No bot account is online on this relay.</None>
         )}
       </List>
-      <Hint>
-        {terms(model.tc, model.rated)}. A human's rating moves half as far against a bot. A bot that
-        names a price joins once you have paid it. A challenge waits a minute for a free bot and
-        three for a paid one, then withdraws itself. A bot without a record can't charge more than{" "}
-        {plural(model.newBotCap, "sat")} here; change that in Settings.
-      </Hint>
+      <Hint>{terms(model.tc, model.rated)}. Bots move your rating half as far.</Hint>
     </>
   );
 }
