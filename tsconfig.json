@@ -1,5 +1,5 @@
 {
   "extends": "@nochess/tsconfig/base.json",
   "compilerOptions": { "lib": ["ES2024", "ESNext.Collection", "DOM"], "types": ["node"] },
-  "include": ["tools", "e2e", "*.config.ts"]
+  "include": ["tools", "e2e", "scripts", "*.config.ts"]
 }

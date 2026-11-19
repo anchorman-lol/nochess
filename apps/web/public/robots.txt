@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://anchorman-lol.github.io/nochess/sitemap.xml

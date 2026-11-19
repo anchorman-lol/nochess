@@ -6,7 +6,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./app/app.tsx";
 import { applySettings, navigate, setSettings, settings } from "./app/store.ts";
 
-document.title = `${BRAND.name}: ${BRAND.tagline.replace(/\.$/, "")}`;
+document.title = `${BRAND.name} · ${BRAND.tagline.replace(/\.$/, "")}`;
 applySettings();
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applySettings);
 if (settings.music)
