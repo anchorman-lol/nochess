@@ -311,6 +311,7 @@ function Slip({ model }: { model: GameModel }) {
     ["Game", terms(game.tc, game.rated)],
     ["Signed moves", `${game.sans.length} of ${game.sans.length}`],
     ["Relay", status().relay.replace(/^wss?:\/\//, "")],
+    ["Move times", status().timed ? "checked by the relay" : "as the players signed them"],
   ];
   return (
     <>

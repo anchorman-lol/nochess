@@ -1,11 +1,12 @@
 import { bytesToHex, hexToBytes, randomBytes } from "@noble/hashes/utils.js";
 import { Chess } from "chess.js";
 import { generateSecretKey } from "nostr-tools/pure";
-import { keySigner, type Net, type Signer } from "../nostr/net.ts";
+import { deliver, keySigner, type Net, type Signer } from "../nostr/net.ts";
 import { archive } from "./archive.ts";
 import {
   type Action,
   address,
+  bindSession,
   build,
   type GameEvent,
   hashHex,
@@ -42,7 +43,20 @@ export async function openGame(
   store.setItem(sessionKey(addr), bytesToHex(secret));
   store.setItem(saltKey(addr), salt);
   await net.publish(
-    build.open(gameId, terms, keySigner(secret).pubkey, hashHex(salt), nowSec(), challenged, wait),
+    bindSession(
+      build.open(
+        gameId,
+        terms,
+        keySigner(secret).pubkey,
+        hashHex(salt),
+        nowSec(),
+        challenged,
+        wait,
+      ),
+      secret,
+      addr,
+      net.signer.pubkey,
+    ),
   );
   return gameId;
 }
@@ -66,12 +80,22 @@ export class Table {
   private net: Net;
   private store: Store;
   private onChange: () => void;
+  private name: (pubkey: string) => string;
   private events = new Map<string, GameEvent>();
   private sent = new Set<string>();
   private withdrawn = false;
   private stops: (() => void)[];
 
-  constructor(net: Net, host: string, gameId: string, store: Store, onChange: () => void) {
+  /** `name` gives a player's profile name for the archive's `alt`. */
+  constructor(
+    net: Net,
+    host: string,
+    gameId: string,
+    store: Store,
+    onChange: () => void,
+    name: (pubkey: string) => string = () => "",
+  ) {
+    this.name = name;
     this.net = net;
     this.store = store;
     this.onChange = onChange;
@@ -109,6 +133,12 @@ export class Table {
     return secret ? keySigner(hexToBytes(secret)) : null;
   }
 
+  /** The template with my session key's proof that it plays for me at this table. */
+  private bound(template: Template) {
+    const secret = this.store.getItem(sessionKey(this.addr));
+    return secret ? bindSession(template, hexToBytes(secret), this.addr, this.me) : template;
+  }
+
   /** My seat, if this device holds the session key the game names for me. */
   seat(): Seat | null {
     const seat = seatOf(this.game, this.me);
@@ -124,19 +154,11 @@ export class Table {
     this.tick();
   }
 
-  /** Signs once and sends until the relay has it, so a retry can never become a second move. */
+  /** Sends each thing once per table; `deliver` keeps a retry from becoming a second move. */
   private send(key: string, template: Template, signer: Signer) {
     if (this.sent.has(key)) return;
     this.sent.add(key);
-    void signer.sign(template).then(async (event) => {
-      for (let tries = 0; tries < 30; tries++) {
-        try {
-          return this.receive(await this.net.send(event));
-        } catch {
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-        }
-      }
-    });
+    void deliver(this.net, template, signer).then((event) => event && this.receive(event));
   }
 
   private tick() {
@@ -167,7 +189,9 @@ export class Table {
     else if (hosting && session && salt && this.loaded && game.join)
       this.send(
         "playing",
-        build.playing(game.gameId, game, session.pubkey, salt, game.join, at, lobby.created_at),
+        this.bound(
+          build.playing(game.gameId, game, session.pubkey, salt, game.join, at, lobby.created_at),
+        ),
         this.net.signer,
       );
     const seat = this.seat();
@@ -179,7 +203,7 @@ export class Table {
         else if (game.startBy !== null) this.act("abort");
       const mine = this.archives.some((note) => note.pubkey === this.me);
       if (game.phase === "finished" && this.loaded && !mine)
-        this.send("archive", archive(game, this.net.url, now), this.net.signer);
+        this.send("archive", archive(game, this.net.url, now, this.name), this.net.signer);
     }
     this.onChange();
   }
@@ -192,14 +216,16 @@ export class Table {
     this.store.setItem(sessionKey(this.addr), bytesToHex(secret));
     this.send(
       "join",
-      build.join(
-        this.addr,
-        this.game.host,
-        termsOf(lobby),
-        keySigner(secret).pubkey,
-        tagValue(lobby, "seed") ?? "",
-        nowSec(),
-        paidBy,
+      this.bound(
+        build.join(
+          this.addr,
+          this.game.host,
+          termsOf(lobby),
+          keySigner(secret).pubkey,
+          tagValue(lobby, "seed") ?? "",
+          nowSec(),
+          paidBy,
+        ),
       ),
       this.net.signer,
     );
@@ -221,7 +247,12 @@ export class Table {
       const ply = game.sans.length + 1;
       const at = Math.max(nowSec(), game.times.at(-1) ?? game.startedAt);
       const prev = game.ids.at(-1) ?? game.join!.id;
-      this.send(`move:${ply}`, build.move(this.addr, ply, prev, made.san, made.after, at), session);
+      const opponent = game.players![1 - turnOf(game)];
+      this.send(
+        `move:${ply}`,
+        build.move(this.addr, ply, prev, made.san, made.after, at, opponent),
+        session,
+      );
       return true;
     } catch {
       return false;

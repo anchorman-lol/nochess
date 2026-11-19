@@ -1,6 +1,7 @@
 import type { Verdict } from "@nochess/core/game/archive.ts";
 import { type Speed, speedOf } from "@nochess/core/game/events.ts";
 import type { Rating } from "@nochess/core/game/glicko.ts";
+import type { JesterGame } from "@nochess/core/jester/jester.ts";
 import { Icon } from "@nochess/ui/components/icon";
 import { useEffect, useRef } from "react";
 import { FIRST_PAGE, type Seek } from "../app/store.ts";
@@ -60,6 +61,33 @@ export function ResultRow({ verdict }: { verdict: Verdict }) {
           {verdict.termination} · {terms(verdict.tc, verdict.rated)}
         </span>
       </a>
+    </li>
+  );
+}
+
+/** A Jester game from another client: not a link, since Nochess shows it only here. */
+export function JesterRow({ game }: { game: JesterGame }) {
+  const seat = (pubkey: string | null) =>
+    pubkey ? <Player pubkey={pubkey} /> : <i className="text-muted-foreground">open seat</i>;
+  const moves = Math.ceil(game.sans.length / 2);
+  return (
+    <li data-testid="jester-game">
+      <span className="min-w-0 flex-1 truncate">
+        {seat(game.white)}{" "}
+        <b className="mx-1 inline-block min-w-9 text-center tabular-nums">
+          {game.result?.replaceAll("1/2", "½") ?? (
+            <i className="font-normal text-muted-foreground not-italic">vs</i>
+          )}
+        </b>{" "}
+        {seat(game.black)}
+      </span>
+      <span className="text-[0.87rem] text-muted-foreground max-sm:hidden">
+        {game.result ? game.termination : moves ? `move ${moves}` : "waiting"} ·{" "}
+        {new Date(game.updatedAt * 1000).toLocaleDateString(undefined, {
+          day: "numeric",
+          month: "short",
+        })}
+      </span>
     </li>
   );
 }
