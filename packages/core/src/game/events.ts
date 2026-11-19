@@ -11,7 +11,7 @@ export const KIND = {
   label: 1985,
   zapRequest: 9734,
   zap: 9735,
-  game: 30064,
+  game: 31640,
   rating: 30382,
   status: 30315,
 } as const;

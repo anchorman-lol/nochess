@@ -1,7 +1,7 @@
 import { Chess } from "chess.js";
 import { finalizeEvent, generateSecretKey, getPublicKey } from "nostr-tools/pure";
 import { expect, test } from "vitest";
-import { archive, audit, auditAll, prove } from "./archive.ts";
+import { archive, audit, auditAll, pgnTermination, prove } from "./archive.ts";
 import { type Action, address, build, type GameEvent, hashHex, type Template } from "./events.ts";
 import { ratings, rate, START } from "./glicko.ts";
 import { replay } from "./replay.ts";
@@ -45,6 +45,36 @@ test("an archive is a PGN that proves itself", () => {
     rated: true,
     speed: "blitz",
   });
+});
+
+test("an archive follows PGN export format and marks each player's colour", () => {
+  const sans = (
+    "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6 c3 O-O h3 Nb8 d4 Nbd7 " +
+    "c4 c6 cxb5 axb5 Nc3 Bb7 Bg5 b4 Nb1 h6 Bh4 c5 dxe5 Nxe5 Nxe5 dxe5"
+  ).split(" ");
+  const game = signedGame("g7", sans, true, "resign");
+  const note = archive(game, "ws://relay", 600);
+  const [tags, movetext, end] = note.content.split("\n\n");
+  expect(tags.split("\n").slice(7)).toEqual(['[Termination "normal"]', '[TimeControl "300+3"]']);
+  expect(movetext.split("\n").length).toBeGreaterThan(1);
+  expect(movetext.split("\n").every((line) => line.length < 80)).toBe(true);
+  expect(end).toBe("");
+  expect(note.tags.filter(([name]) => name === "p")).toEqual([
+    ["p", game.players![0], "", "white"],
+    ["p", game.players![1], "", "black"],
+  ]);
+  expect(audit([by(0, note)])).toMatchObject({ termination: "resignation", sans });
+});
+
+test.each([
+  ["time", "time forfeit"],
+  ["equivocation", "rules infraction"],
+  ["no start", "abandoned"],
+  ["aborted", "unterminated"],
+  ["checkmate", "normal"],
+  ["stalemate", "normal"],
+])("termination %s is written as PGN's %s", (ours, standard) => {
+  expect(pgnTermination(ours)).toBe(standard);
 });
 
 test("an archive with a changed move or result proves nothing", () => {

@@ -408,26 +408,24 @@ function Bots({ model }: { model: LobbyModel }) {
         {model.bots.length ? (
           model.bots.map((bot) => (
             <li key={bot.pubkey} className={cn(!bot.status.free && "opacity-60")}>
-              <span className="grid min-w-0 flex-1">
-                <span className="flex min-w-0 items-center gap-2">
-                  <PlayerLink pubkey={bot.pubkey} />
-                  {bot.rating && (
-                    <span className="rating text-muted-foreground tabular-nums">
-                      <ShowRating rating={bot.rating} />
-                    </span>
-                  )}
-                </span>
-                <small className="text-[0.8rem] text-muted-foreground" data-testid="bot-status">
-                  {!bot.status.online
-                    ? "offline"
-                    : bot.status.free
-                      ? `online, ${bot.status.free} of ${bot.status.max} free`
-                      : "online, every table busy"}
-                </small>
-                <small className="text-[0.8rem] text-muted-foreground" data-testid="bot-record">
-                  {bot.record}
-                </small>
+              <span className="flex min-w-0 basis-full items-center gap-2">
+                <PlayerLink pubkey={bot.pubkey} />
+                {bot.rating && (
+                  <span className="rating text-muted-foreground tabular-nums">
+                    <ShowRating rating={bot.rating} />
+                  </span>
+                )}
               </span>
+              <small
+                className="min-w-0 flex-1 text-[0.8rem] text-muted-foreground"
+                data-testid="bot-status"
+              >
+                {!bot.status.online
+                  ? "offline"
+                  : bot.status.free
+                    ? `online, ${bot.status.free} of ${bot.status.max} free`
+                    : "online, every table busy"}
+              </small>
               <button
                 type="button"
                 className={cn(button, "h-8 shrink-0 text-[0.87rem]")}
@@ -448,6 +446,12 @@ function Bots({ model }: { model: LobbyModel }) {
               >
                 Challenge{bot.sats ? ` · ${plural(bot.sats, "sat")}` : ""}
               </button>
+              <small
+                className="basis-full text-[0.8rem] text-muted-foreground"
+                data-testid="bot-record"
+              >
+                {bot.record}
+              </small>
             </li>
           ))
         ) : (

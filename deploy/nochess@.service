@@ -1,0 +1,23 @@
+[Unit]
+Description=Nochess %i
+After=network-online.target anchorman-relay.service
+Wants=network-online.target
+
+[Service]
+User=nochess-services
+Group=nochess-services
+WorkingDirectory=/var/lib/nochess-services/%i
+EnvironmentFile=/etc/nochess-services/%i.env
+ExecStart=/usr/bin/env node /opt/nochess-services/tools/%i.ts $ARGS
+Restart=always
+RestartSec=5
+TimeoutStopSec=10
+MemoryMax=700M
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/nochess-services/%i
+
+[Install]
+WantedBy=multi-user.target

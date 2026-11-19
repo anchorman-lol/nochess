@@ -23,7 +23,7 @@ test("landing, lobby, game, settings, zaps, a paid bot and an invoice render wit
     {
       NOCHESS_BOT_ID: "paybot",
       NOCHESS_PAYBOT_KEY: "3".repeat(64),
-      NOCHESS_BOT_NAME: "Paybot",
+      NOCHESS_BOT_NAME: "Paybot the Patient Positional Pro",
       NOCHESS_BOT_PRICE: "21",
       NOCHESS_BOT_LUD16: `paybot@${ZAP_HOST}`,
     },

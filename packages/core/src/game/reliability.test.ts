@@ -88,6 +88,16 @@ test("a receipt no join spent counts once its challenge can no longer be answere
   expect(record).toMatchObject({ asked: 2, answered: 1, unspent: 1 });
 });
 
+test("a tip on a game the bot joined is not a paid challenge it never joined", () => {
+  const free = joined("g1", 100, 2);
+  const record = reliability(
+    BOT,
+    { lobbies: [free.lobby], joins: [free.join], zaps: [zap("tip", "g1", 500)], verdicts: [] },
+    NOW,
+  );
+  expect(record).toMatchObject({ asked: 1, answered: 1, unspent: 0 });
+});
+
 test("games abandoned are first moves never made and games lost on time", () => {
   const verdicts = [
     verdict([HUMAN, BOT], "1-0", "checkmate"),

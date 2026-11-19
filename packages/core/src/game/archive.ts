@@ -39,15 +39,37 @@ export function pgn(game: Game, site: string): string {
     White: nip19.npubEncode(game.players![0]),
     Black: nip19.npubEncode(game.players![1]),
     Result: game.result!,
+    Termination: pgnTermination(game.termination),
     TimeControl: "days" in clock ? `1/${clock.days * 86_400}` : game.tc,
-    Termination: game.termination,
   };
   const moves = game.sans.map((san, i) => (i % 2 ? san : `${i / 2 + 1}. ${san}`));
   return [
     ...Object.entries(headers).map(([name, value]) => `[${name} "${value}"]`),
     "",
-    [...moves, game.result].join(" "),
+    ...wrap([...moves, game.result!]),
+    "",
+    "",
   ].join("\n");
+}
+
+/** PGN's Termination value for how `replay()` says a game ended. */
+export const pgnTermination = (termination: string) =>
+  ({
+    time: "time forfeit",
+    equivocation: "rules infraction",
+    "no start": "abandoned",
+    aborted: "unterminated",
+  })[termination] ?? "normal";
+
+/** Movetext lines under 80 columns, as PGN export format asks. */
+function wrap(tokens: string[]): string[] {
+  const lines = [""];
+  for (const token of tokens) {
+    const line = lines.at(-1)!;
+    if (line && line.length + 1 + token.length >= 80) lines.push(token);
+    else lines[lines.length - 1] = line ? `${line} ${token}` : token;
+  }
+  return lines;
 }
 
 /**
@@ -67,8 +89,8 @@ export function archive(game: Game, site: string, now: number): Template {
     content: pgn(game, site),
     tags: [
       ["a", game.addr],
-      ["p", game.players![0]],
-      ["p", game.players![1]],
+      ["p", game.players![0], "", "white"],
+      ["p", game.players![1], "", "black"],
       ["t", TOPIC],
       ["result", game.result!],
       ["alt", `Chess game, ${game.result} by ${game.termination}`],

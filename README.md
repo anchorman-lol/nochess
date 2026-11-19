@@ -66,6 +66,8 @@ The mock provider and the play-money wallet exist only where `VITE_DEV_WALLET` i
 
 `pnpm deploy:pages` builds the app for production, ignoring any `VITE_` variables in the shell, and force-pushes it to the `gh-pages` branch of `origin`, which GitHub Pages serves. The build runs locally, not in Actions. Asset paths are relative and routes are hash-based, so the same build works under any path.
 
+`deploy/services.sh` runs the rater (`--watch`) and the paid reviewer (`--serve`) as systemd services `nochess@rater` and `nochess@reviewer` on a Debian host, with their settings in `deploy/*.env`; `STOCKFISH` points the tools at a native engine instead of the WASM build.
+
 How it works, the event kinds, and what the relay still has to enforce: [docs/DESIGN.md](docs/DESIGN.md).
 
 ## Layout

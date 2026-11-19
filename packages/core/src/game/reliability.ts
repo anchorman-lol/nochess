@@ -17,7 +17,7 @@ export type Reliability = {
   unspent: number;
 };
 export type Sources = {
-  /** Game events (kind 30064), the newest per game. */
+  /** Game events (kind 31640), the newest per game. */
   lobbies: GameEvent[];
   /** The player's joins and declines (kind 1640). */
   joins: GameEvent[];
@@ -48,7 +48,8 @@ export function reliability(pubkey: string, sources: Sources, now: number): Reli
       zap.to === pubkey &&
       zap.addr?.startsWith(`${KIND.game}:`) &&
       zap.at < now - WAIT.paidBot &&
-      !spent.has(zap.id),
+      !spent.has(zap.id) &&
+      !answers.has(zap.addr!),
   );
   for (const zap of unspent) asked.add(zap.addr!);
   /** The answer can't come before the payment, so a paid challenge is timed from it. */

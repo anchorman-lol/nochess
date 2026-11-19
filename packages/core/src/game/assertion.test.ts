@@ -6,7 +6,7 @@ import { sign } from "./testkit.ts";
 
 const [A, B, C, RATER, STRANGER] = ["a", "b", "c", "d", "e"].map((char) => char.repeat(64));
 const game = (n: number, white: string, black: string, result: Verdict["result"]): Verdict => ({
-  addr: `30064:${white}:g${n}`,
+  addr: `31640:${white}:g${n}`,
   players: [white, black],
   result,
   termination: "checkmate",

@@ -13,7 +13,7 @@ import { readZap, split, zapRequest } from "./zap.ts";
 const keys = [0, 1, 2, 3].map(() => generateSecretKey());
 const [PAYER, BOT, PROVIDER, OTHER] = keys.map((key) => getPublicKey(key));
 const by = (who: number, template: Template): GameEvent => finalizeEvent(template, keys[who]);
-const GAME = `30064:${PAYER}:g1`;
+const GAME = `31640:${PAYER}:g1`;
 const PREIMAGE = hexToBytes("11".repeat(32));
 
 /** A zap as an honest provider settles it; `change` tampers with the pieces first. */
@@ -93,7 +93,7 @@ test("a receipt cannot be pointed at another recipient or game", () => {
   const retag = (name: string, value: string) =>
     by(2, { ...event, tags: event.tags.map((tag) => (tag[0] === name ? [name, value] : tag)) });
   expect(readZap(retag("p", OTHER), PROVIDER)).toBeNull();
-  expect(readZap(retag("a", `30064:${OTHER}:g2`), PROVIDER)).toBeNull();
+  expect(readZap(retag("a", `31640:${OTHER}:g2`), PROVIDER)).toBeNull();
   const forged = JSON.stringify({ ...JSON.parse(event.tags.at(-1)![1]), pubkey: OTHER });
   expect(readZap(retag("description", forged), PROVIDER)).toBeNull();
 });
@@ -137,10 +137,10 @@ test("anyone may pay for a challenge, but only the payer's own unused receipt ca
   const want = { addr: GAME, payer: PAYER, price: 21_000 };
   const sponsor = paid(21_000, GAME, 3);
   expect(payment([sponsor], new Set(), want)).toBe(sponsor);
-  const earlier = paid(21_000, `30064:${PAYER}:old`);
+  const earlier = paid(21_000, `31640:${PAYER}:old`);
   expect(payment([earlier], new Set(), want)).toBe(earlier);
   expect(payment([earlier], new Set([earlier.id]), want)).toBeNull();
-  expect(payment([paid(21_000, `30064:${OTHER}:old`, 3)], new Set(), want)).toBeNull();
+  expect(payment([paid(21_000, `31640:${OTHER}:old`, 3)], new Set(), want)).toBeNull();
   const direct = paid(21_000);
   expect(payment([earlier, direct], new Set(), want)).toBe(direct);
 });
@@ -150,7 +150,7 @@ test("a reviewer owes one review per unanswered receipt of at least its price", 
     paid(1000),
     paid(50_000, null),
     paid(50_000),
-    paid(60_000, `30064:${OTHER}:g2`, 3),
+    paid(60_000, `31640:${OTHER}:g2`, 3),
   ];
   expect(owed([low, tip, first, second], new Set(), 50_000)).toEqual([first, second]);
   expect(owed([first, second, first], new Set([first.id]), 50_000)).toEqual([second]);

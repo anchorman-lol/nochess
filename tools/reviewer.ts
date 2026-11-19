@@ -6,13 +6,22 @@
 // when a valid zap receipt of at least NOCHESS_REVIEW_PRICE (sats) names it, and its labels name
 // that receipt.
 import { Chess } from "chess.js";
-import { Engine, ENGINE } from "../packages/core/src/engine/uci.ts";
+import { Engine } from "../packages/core/src/engine/uci.ts";
 import { audit, type Verdict } from "../packages/core/src/game/archive.ts";
 import { KIND, tagValue, TOPIC } from "../packages/core/src/game/events.ts";
 import { labelFor, type Reviewed, summarise, THRESHOLD } from "../packages/core/src/game/review.ts";
 import { owed } from "../packages/core/src/zap/fee.ts";
 import { readZap, type Zap } from "../packages/core/src/zap/zap.ts";
-import { connect, enginePipe, finishedGames, nowSec, RELAY, servicePoint, short } from "./node.ts";
+import {
+  connect,
+  ENGINE_NAME,
+  enginePipe,
+  finishedGames,
+  nowSec,
+  RELAY,
+  servicePoint,
+  short,
+} from "./node.ts";
 
 const NAMESPACE = "nochess/fairplay";
 const DEPTH = Number(process.env.NOCHESS_REVIEW_DEPTH ?? 10);
@@ -77,7 +86,7 @@ async function review(
         ...(paidBy ? [["e", paidBy]] : []),
       ],
       content: JSON.stringify({
-        engine: ENGINE,
+        engine: ENGINE_NAME,
         depth,
         ...summary,
         threshold: THRESHOLD,
@@ -87,7 +96,7 @@ async function review(
   }
 }
 
-console.log(`reviewer ${me}\n${ENGINE}\n`);
+console.log(`reviewer ${me}\n${ENGINE_NAME}\n`);
 console.log("game      player    positions  match  acpl   label");
 if (process.argv.includes("--serve")) {
   const lud16 = process.env.NOCHESS_REVIEW_LUD16 ?? "";
@@ -98,7 +107,7 @@ if (process.argv.includes("--serve")) {
     tags: [["t", TOPIC]],
     content: JSON.stringify({
       name: process.env.NOCHESS_REVIEW_NAME ?? "Nochess reviewer",
-      about: `Fair-play review on request: ${ENGINE}, depth ${PAID_DEPTH}.`,
+      about: `Fair-play review on request: ${ENGINE_NAME}, depth ${PAID_DEPTH}.`,
       lud16,
       nochess: { role: "review", price_msat: PRICE },
     }),

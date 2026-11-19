@@ -3,7 +3,7 @@
 // With NOCHESS_BOT_PRICE (sats) it joins a challenge only once a valid zap receipt pays for it. A
 // challenge it can't take (other terms, all tables in use, a relay that refuses the game's
 // subscription) it declines at once rather than letting it wait out its time.
-import { Engine, ENGINE } from "../packages/core/src/engine/uci.ts";
+import { Engine } from "../packages/core/src/engine/uci.ts";
 import {
   address,
   build,
@@ -18,7 +18,16 @@ import { turnOf } from "../packages/core/src/game/replay.ts";
 import { sessionKey, Table } from "../packages/core/src/game/table.ts";
 import { payment } from "../packages/core/src/zap/fee.ts";
 import { readZap, type Zap } from "../packages/core/src/zap/zap.ts";
-import { connect, enginePipe, fileStore, nowSec, RELAY, servicePoint, short } from "./node.ts";
+import {
+  connect,
+  ENGINE_NAME,
+  enginePipe,
+  fileStore,
+  nowSec,
+  RELAY,
+  servicePoint,
+  short,
+} from "./node.ts";
 
 const SKILL = Number(process.env.NOCHESS_BOT_SKILL ?? 20);
 const MOVE_MS = Number(process.env.NOCHESS_BOT_MS ?? 300);
@@ -29,7 +38,7 @@ const MAX_TABLES = Number(process.env.NOCHESS_BOT_TABLES ?? 15);
 const modes = (process.env.NOCHESS_BOT_MODES ?? "rated,casual").split(",");
 const content = JSON.stringify({
   name: NAME,
-  about: `${ENGINE}, skill ${SKILL}, ${MOVE_MS} ms a move. Challenge me on Nochess.`,
+  about: `${ENGINE_NAME}, skill ${SKILL}, ${MOVE_MS} ms a move. Challenge me on Nochess.`,
   bot: true,
   lud16: process.env.NOCHESS_BOT_LUD16,
   nochess: {

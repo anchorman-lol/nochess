@@ -4,7 +4,7 @@ import { dirname } from "node:path";
 import { createInterface } from "node:readline";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 import { generateSecretKey } from "nostr-tools/pure";
-import type { Pipe } from "../packages/core/src/engine/uci.ts";
+import { ENGINE, type Pipe } from "../packages/core/src/engine/uci.ts";
 import { auditAll } from "../packages/core/src/game/archive.ts";
 import { KIND, profileOf, TOPIC } from "../packages/core/src/game/events.ts";
 import { keySigner, Net } from "../packages/core/src/nostr/net.ts";
@@ -51,11 +51,18 @@ export function fileStore(file: string) {
   };
 }
 
-/** Stockfish's WASM build as a child process that speaks UCI on its standard streams. */
+const STOCKFISH = process.env.STOCKFISH;
+/** The engine the tools use: a native Stockfish at STOCKFISH, else the same WASM build as the browser. */
+export const ENGINE_NAME = STOCKFISH ? "Stockfish (native, one thread)" : ENGINE;
+
+/** The engine as a child process that speaks UCI on its standard streams. */
 export function enginePipe(): Pipe {
-  const engine = spawn(process.execPath, [
-    new URL("../node_modules/stockfish/bin/stockfish-19-lite-single.js", import.meta.url).pathname,
-  ]);
+  const engine = STOCKFISH
+    ? spawn(STOCKFISH)
+    : spawn(process.execPath, [
+        new URL("../node_modules/stockfish/bin/stockfish-19-lite-single.js", import.meta.url)
+          .pathname,
+      ]);
   return {
     post: (line) => engine.stdin.write(`${line}\n`),
     listen: (onLine) => createInterface({ input: engine.stdout }).on("line", onLine),
