@@ -1,5 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
-import { PLATFORM, RELAY, ZAP_HOST, ZAPMOCK_KEY } from "./e2e/play.ts";
+import { getPublicKey } from "nostr-tools/pure";
+import { PLATFORM, RATER_KEY, RELAY, ZAP_HOST, ZAPMOCK_KEY } from "./e2e/play.ts";
 
 const WEB_PORT = 5188;
 
@@ -32,6 +33,7 @@ export default defineConfig({
       url: `http://127.0.0.1:${WEB_PORT}`,
       env: {
         VITE_RELAY_URL: RELAY,
+        VITE_RATERS: getPublicKey(Buffer.from(RATER_KEY, "hex")),
         VITE_DEV_WALLET: `http://${ZAP_HOST}`,
         VITE_PLATFORM_LUD16: `luft@${ZAP_HOST}`,
         VITE_PLATFORM_PUBKEY: PLATFORM,

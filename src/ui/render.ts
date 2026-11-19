@@ -83,6 +83,8 @@ export type HomeModel = {
   rated: boolean;
   level: number;
   error: string;
+  /** Whether a trusted rater's assertions are in use. */
+  trusted: boolean;
   /** How zaps from this browser are paid; empty if every invoice has to be shown. */
   wallet: string;
 };
@@ -113,6 +115,9 @@ export type ProfileModel = {
   me: string;
   who: Who;
   ratings: Partial<Record<Speed, Rating>>;
+  /** The trusted rater that asserted these ratings, and what recomputing them found. */
+  rater: string | null;
+  check: { ok: boolean; detail: string } | null;
   zaps: Zap[];
   games: Verdict[];
 };
@@ -389,7 +394,11 @@ export function homeView(model: HomeModel): string {
           )
           .join("") || none("No rated game yet.")
       }</ol>
-      <p class="hint">Glicko-2, computed in your browser from the checked rated games. A question mark means provisional. Bots are rated, not ranked.</p>
+      <p class="hint" data-testid="rating-source">Glicko-2, ${
+        model.trusted
+          ? "as published by the trusted rater, and computed in your browser for players it has not rated yet. A player's page recomputes their rating to verify it"
+          : "computed in your browser from the checked rated games"
+      }. A question mark means provisional. Bots are rated, not ranked.</p>
       <div class="you">
         <p>You are <a href="#/player/${me}"><code title="${nip19.npubEncode(me)}" data-testid="me">${shortKey(me)}</code></a>, signing with ${
           model.source === "extension" ? "your Nostr extension" : "a key kept in this browser"
@@ -628,6 +637,16 @@ export function profileView(model: ProfileModel): string {
     }</div>
     <h3>Ratings</h3>
     <ul class="list">${ratings || '<li class="none">No rated game yet.</li>'}</ul>
+    ${
+      model.rater
+        ? `<p class="hint" data-testid="rated-by">Published by rater ${shortKey(model.rater)}. <button data-action="verify" data-testid="verify">Verify</button></p>${
+            model.check
+              ? `<p class="${model.check.ok ? "hint" : "error"}" data-testid="verified">${model.check.ok ? "Verified" : "Mismatch"}: ${esc(model.check.detail)}</p>`
+              : ""
+          }`
+        : ratings &&
+          '<p class="hint" data-testid="rated-by">Computed in this browser from the checked games.</p>'
+    }
     <h3>Zaps received</h3>
     <ul class="list" data-testid="zaps">${
       zaps

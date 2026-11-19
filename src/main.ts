@@ -1,7 +1,8 @@
 import "./style.css";
 import { Chess } from "chess.js";
 import { Engine, LEVELS, workerPipe } from "./engine/uci.ts";
-import { audit, type Verdict } from "./game/archive.ts";
+import { audit, auditAll, type Verdict } from "./game/archive.ts";
+import { trusted, verify, withTrusted } from "./game/assertion.ts";
 import {
   address,
   build,
@@ -73,6 +74,8 @@ const PLATFORM: { pubkey: string; lud16: string } | null =
   import.meta.env.VITE_PLATFORM_PUBKEY && import.meta.env.VITE_PLATFORM_LUD16
     ? { pubkey: import.meta.env.VITE_PLATFORM_PUBKEY, lud16: import.meta.env.VITE_PLATFORM_LUD16 }
     : null;
+/** The raters whose published ratings are shown in place of the ones computed here. */
+const RATERS: string[] = (import.meta.env.VITE_RATERS ?? "").split(",").filter(Boolean);
 const DEV_WALLET: string = import.meta.env.VITE_DEV_WALLET ?? "";
 if (DEV_WALLET) (await import("./zap/devwallet.ts")).install(DEV_WALLET);
 const app = document.querySelector<HTMLElement>("#app")!;
@@ -151,11 +154,21 @@ function audited() {
   const results = all.filter((verdict) => verdict != null).sort((a, b) => b.endedAt - a.endedAt);
   return { results, doubted: all.filter((verdict) => verdict === null).length };
 }
+const assertions = new Map<string, GameEvent>();
+if (RATERS.length)
+  net.subscribe([{ kinds: [KIND.rating], authors: RATERS, "#t": [TOPIC] }], (event) => {
+    const key = `${event.pubkey}:${tagValue(event, "d")}`;
+    if ((assertions.get(key)?.created_at ?? -1) < event.created_at) assertions.set(key, event);
+    rated = undefined;
+    paint();
+  });
+const asserted = () => trusted([...assertions.values()], RATERS);
 let rated: { key: string; table: ReturnType<typeof ratings> } | undefined;
+/** A trusted rater's numbers for the players it has rated, this browser's own for the rest. */
 function ratingTable() {
   const { results } = audited();
   const key = `${results.length}|${profiles.size}`;
-  if (rated?.key !== key) rated = { key, table: ratings(results, isBot) };
+  if (rated?.key !== key) rated = { key, table: withTrusted(ratings(results, isBot), asserted()) };
   return rated.table;
 }
 const rate = (pubkey: string, speed: Speed) => ratingTable().get(pubkey)?.[speed];
@@ -434,6 +447,7 @@ function home(): Route {
         rated,
         level,
         error,
+        trusted: asserted().size > 0,
         wallet: wallet(),
       });
     },
@@ -634,6 +648,7 @@ const reviewers = () =>
 
 function profile(pubkey: string): Route {
   const receipts = new Map<string, GameEvent>();
+  let check: { ok: boolean; detail: string } | null = null;
   const stop = net.subscribe([{ kinds: [KIND.zap], "#p": [pubkey], limit: 200 }], (event) => {
     receipts.set(event.id, event);
     paint();
@@ -645,6 +660,8 @@ function profile(pubkey: string): Route {
         me,
         who,
         ratings: ratingTable().get(pubkey) ?? {},
+        rater: asserted().get(pubkey)?.rater ?? null,
+        check,
         zaps: zap
           .zaps(receipts.values())
           .filter((z) => z.to === pubkey)
@@ -653,7 +670,15 @@ function profile(pubkey: string): Route {
           .results.filter((v) => v.result !== "*" && v.players.includes(pubkey))
           .slice(0, 20),
       }),
-    act() {},
+    /** Verify: every archive on the relay is audited again and the player's assertion recomputed. */
+    act(action) {
+      const claim = asserted().get(pubkey);
+      if (action !== "verify" || !claim) return;
+      void net.fetch([{ kinds: [KIND.archive], "#t": [TOPIC], limit: 5000 }]).then((archives) => {
+        check = verify(claim, auditAll(archives), isBot);
+        paint();
+      });
+    },
     leave: stop,
   };
 }

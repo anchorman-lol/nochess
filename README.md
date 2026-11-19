@@ -22,7 +22,7 @@ Open the app in two browsers (or one normal and one private window) to play your
 | `pnpm review`         | The automated fair-play reviewer: analyses finished games and publishes NIP-32 labels. `--dry` prints only, `--include-bots` reviews declared bots too |
 | `pnpm review --serve` | The same reviewer on request: reviews a game once a zap of `LUFT_REVIEW_PRICE` sats (default 50) to `LUFT_REVIEW_LUD16` names it                       |
 | `pnpm zapmock`        | The mock Lightning provider alone, on `LUFT_ZAP_PORT` (default 7779)                                                                                   |
-| `pnpm rate`           | The reference Glicko-2 rater: publishes one assertion per player. `--dry` prints only                                                                  |
+| `pnpm rate`           | The reference Glicko-2 rater: publishes one checkable assertion per player. `--dry` prints only, `--watch` keeps rating, `--pubkey` prints its key     |
 | `pnpm test`           | Unit tests: replay, clock, archive audit, ratings, reviewer statistics, zap receipts, splits and fee gating                                            |
 | `pnpm test:e2e`       | Playwright: two browsers play a full game, one plays the bot accounts to the end, players are zapped, a bot and a reviewer are paid                    |
 | `pnpm check`          | Lint, typecheck, unit tests and e2e                                                                                                                    |
@@ -36,7 +36,7 @@ The tools read `LUFT_RELAY` (default `ws://127.0.0.1:7778`) and keep their keys 
 - Spectating by link.
 - A signed archive of every finished game and a results list that shows only games whose every signature verifies.
 - The computer in the browser (Stockfish WASM, eight levels, casual) and a bot account that plays rated games over the relay.
-- Glicko-2 ratings per speed class, computed from the audited games.
+- Glicko-2 ratings per speed class: published by a rater the client trusts (`VITE_RATERS`), verifiable from a player's page, and computed in the browser where no rater has spoken.
 - Zaps (NIP-57) to a player, or to one or both players of a game, with the receipts shown on the cards. Paid by WebLN, Nostr Wallet Connect, or as an invoice with a QR code.
 - Bots and reviewers that charge per game, and act only on a receipt they have verified.
 

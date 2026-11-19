@@ -59,16 +59,19 @@ export function rate(
   };
 }
 
+/** The games that move ratings, in the order they are rated: oldest first. */
+export const ratedGames = (verdicts: Verdict[]) =>
+  verdicts
+    .filter((verdict) => verdict.rated && verdict.result !== "*")
+    .sort((a, b) => a.endedAt - b.endedAt || a.addr.localeCompare(b.addr));
+
 /**
  * Ratings per speed from audited rated games, each game its own rating period, oldest first.
  * As on Lichess, a human's rating moves half as far in a game against a bot; the bot's moves in full.
  */
 export function ratings(verdicts: Verdict[], isBot: (pubkey: string) => boolean = () => false) {
   const table = new Map<string, Partial<Record<Speed, Rating>>>();
-  const games = verdicts
-    .filter((verdict) => verdict.rated && verdict.result !== "*")
-    .sort((a, b) => a.endedAt - b.endedAt || a.addr.localeCompare(b.addr));
-  for (const { players, result, speed } of games) {
+  for (const { players, result, speed } of ratedGames(verdicts)) {
     const before = players.map((player) => table.get(player)?.[speed] ?? START);
     const white = result === "1-0" ? 1 : result === "0-1" ? 0 : 0.5;
     players.forEach((player, seat) => {

@@ -8,6 +8,7 @@ export const RELAY = "ws://127.0.0.1:7788";
 /** The mock Lightning provider, its key, and the key the platform's share is zapped to. */
 export const ZAP_HOST = "127.0.0.1:7798";
 export const ZAPMOCK_KEY = "2".repeat(64);
+export const RATER_KEY = "8".repeat(64);
 export const PLATFORM = "193e245d172bfe0b717e47c6008bfb8611d47356c89779b86daafe8b50655ec9";
 
 /** Starts a bot or reviewer against the test relay and waits until it says `ready`. */
