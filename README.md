@@ -37,6 +37,7 @@ The tools read `NOCHESS_RELAY` (default `ws://127.0.0.1:7778`) and keep their ke
 - A reliability record for every bot and player (challenges answered, time to answer, games abandoned), from public events, also published by the rater, and a price cap for bots without one.
 - Spectating by link, and a chat per game: the players talk freely, with quick phrases a tap away; spectators have a room of their own that players see once the game is over.
 - Full lists of games, live boards, open seeks and the leaderboard, loading older ones from the relay as you scroll.
+- Games from other Nostr apps (Amethyst, nostr.blue, jesterui) in the lobby, read-only, untimed and unrated.
 - A signed archive of every finished game and a results list that shows only games whose every signature verifies.
 - The computer in the browser (Stockfish WASM, eight levels, casual) and a bot account that plays rated games over the relay.
 - Glicko-2 ratings per speed class: published by a rater the client trusts (`VITE_RATERS`), verifiable from a player's page, and computed in the browser where no rater has spoken.

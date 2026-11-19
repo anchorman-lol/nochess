@@ -67,6 +67,14 @@ All archives for one game are replayed together. A player cannot hide a lost gam
 
 Known gap: a false time claim, with a timestamp in the future on a relay without the module, makes a self-consistent archive until the other player's archive appears.
 
+## Games from other clients
+
+Amethyst, nostr.blue, Blind Chess and jesterui play Jester v0: every event is kind 30 with JSON content. A start (content `kind` 0) refers with `e` to the hash of the starting position, and a move (content `kind` 1) refers to the start and the move before it and carries the whole history. The lobby's "Elsewhere on Nostr" section reads them from relay.primal.net, nos.lol and relay.damus.io (the first it reaches; a dev or test build uses its own relay) once the lobby is opened: the newest 40 starts under that hash, then every event that names one of them.
+
+`jesterGames()` in `packages/core/src/jester/jester.ts` replays each game by the seat rules of Amethyst's quartz library. The challenger sits in its `playerColor` (White if it names none), and a `p` on the start seats the opponent; otherwise the first player but the challenger to move for the empty seat takes it. A move counts when its author holds the seat to move and its history is the line so far plus that move. Among several, the one naming the previous move wins, then the earliest. chess.js replays the line and stops at the first illegal move. The board decides mates and automatic draws. Without one, a move-less event ends the game if its author may end it: a resignation by the loser, a draw accepted right after the other side's `draw_offered`, or an abandonment claimed by the waiting player after three days of silence (Amethyst's policy). Results claimed in content otherwise count for nothing.
+
+These games have no clock, no session keys and no archive, so they are shown apart, read-only, never rated and never in the results list. Nochess doesn't write Jester events: cross-play would be a second, untimed rule set inside the client.
+
 ## Bots
 
 - **The computer in the browser** is Stockfish 19 lite (WASM, one thread) in a Web Worker with eight levels. Casual only, as on Lichess, and nothing is published.
