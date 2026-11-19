@@ -2,16 +2,7 @@ import { Chess } from "chess.js";
 import { finalizeEvent, generateSecretKey, getPublicKey } from "nostr-tools/pure";
 import { expect, test } from "vitest";
 import { archive, audit, auditAll, pgnTermination, prove } from "./archive.ts";
-import * as nip19 from "nostr-tools/nip19";
-import {
-  type Action,
-  address,
-  build,
-  type GameEvent,
-  hashHex,
-  tagValue,
-  type Template,
-} from "./events.ts";
+import { type Action, address, build, type GameEvent, hashHex, type Template } from "./events.ts";
 import { ratings, rate, START } from "./glicko.ts";
 import { replay } from "./replay.ts";
 import { labelFor, type Reviewed, summarise } from "./review.ts";
@@ -21,20 +12,17 @@ const [HOST, , HS, GS] = keys.map((key) => getPublicKey(key));
 const by = (who: number, template: Template): GameEvent => finalizeEvent(template, keys[who]);
 
 /** A really signed game; the session key of whoever turns out to be White moves first. */
-function signedGame(gameId: string, sans: string[], rated = true, endedBy?: Action, tagged = true) {
+function signedGame(gameId: string, sans: string[], rated = true, endedBy?: Action) {
   const terms = { tc: "300+3", rated };
   const addr = address(HOST, gameId);
   const join = by(1, build.join(addr, HOST, terms, GS, hashHex("s"), 95));
   const events = [join, by(0, build.playing(gameId, terms, HS, "s", join, 100))];
-  const { sessions, players } = replay(events, HOST, gameId);
-  const white = sessions![0] === HS ? 2 : 3;
+  const white = replay(events, HOST, gameId).sessions![0] === HS ? 2 : 3;
   const chess = new Chess();
   let prev = join.id;
   sans.forEach((san, i) => {
     const { after } = chess.move(san);
-    const opponent = tagged ? players![1 - (i % 2)] : undefined;
-    const template = build.move(addr, i + 1, prev, san, after, 105 + i, opponent);
-    const move = by(i % 2 ? 5 - white : white, template);
+    const move = by(i % 2 ? 5 - white : white, build.move(addr, i + 1, prev, san, after, 105 + i));
     prev = move.id;
     events.push(move);
   });
@@ -96,29 +84,6 @@ test("an archive with a changed move or result proves nothing", () => {
   expect(audit([forged])).toBeNull();
   const unfinished = { ...note, content: note.content.replace(" Qh4#", "") };
   expect(audit([unfinished])).toBeNull();
-});
-
-test("a move names the opponent for other clients' notifications, after the fixed tags", () => {
-  const game = signedGame("g8", ["e4"]);
-  const [move] = game.proof.slice(2);
-  expect(move.tags.map(([name]) => name)).toEqual(["a", "ply", "e", "fen", "p"]);
-  expect(tagValue(move, "p")).toBe(game.players![1]);
-});
-
-test("an archive of moves from before the opponent tag still proves itself", () => {
-  const note = by(0, archive(signedGame("g9", MATE, true, undefined, false), "ws://relay", 600));
-  expect(prove(note)).toHaveLength(6);
-  expect(audit([note])?.termination).toBe("checkmate");
-});
-
-test("alt names the players for clients that don't read kind 64", () => {
-  const game = signedGame("g1", MATE);
-  const names = new Map([[game.players![0], "Ada"]]);
-  const alt = tagValue(
-    archive(game, "ws://relay", 600, (key) => names.get(key) ?? ""),
-    "alt",
-  );
-  expect(alt).toBe(`Chess game: Ada vs ${nip19.npubEncode(game.players![1])}, 0-1 by checkmate`);
 });
 
 test("a resignation is proven by the resigner's signed action", () => {

@@ -74,16 +74,9 @@ function wrap(tokens: string[]): string[] {
 
 /**
  * A NIP-64 note of a finished game that proves itself: the PGN, plus what it takes to rebuild
- * every signed move (its time and signature) and the other events the result rests on. `name`
- * gives a player's profile name for `alt`, which falls back to the npub.
+ * every signed move (its time and signature) and the other events the result rests on.
  */
-export function archive(
-  game: Game,
-  site: string,
-  now: number,
-  name: (pubkey: string) => string = () => "",
-): Template {
-  const [white, black] = game.players!.map((key) => name(key) || nip19.npubEncode(key));
+export function archive(game: Game, site: string, now: number): Template {
   const played = new Set(game.ids);
   const proof: Proof = {
     head: game.proof.slice(0, 2),
@@ -100,7 +93,7 @@ export function archive(
       ["p", game.players![1], "", "black"],
       ["t", TOPIC],
       ["result", game.result!],
-      ["alt", `Chess game: ${white} vs ${black}, ${game.result} by ${game.termination}`],
+      ["alt", `Chess game, ${game.result} by ${game.termination}`],
       ["proof", JSON.stringify(proof)],
     ],
   };
@@ -111,35 +104,26 @@ export function prove(note: GameEvent): GameEvent[] | null {
   try {
     const { head, sigs, extra }: Proof = JSON.parse(tagValue(note, "proof") ?? "");
     const [, host, gameId] = (tagValue(note, "a") ?? "").split(":");
-    const { sessions, players, addr, join } = replay(head, host, gameId);
+    const { sessions, addr, join } = replay(head, host, gameId);
     const chess = new Chess();
     chess.loadPgn(note.content);
     const sans = chess.history();
-    if (!sessions || !players || !join || sans.length !== sigs.length) return null;
+    if (!sessions || !join || sans.length !== sigs.length) return null;
     chess.reset();
     let prev = join.id;
     const moves = sans.map((san, i) => {
       const [at, sig] = sigs[i];
       const { after } = chess.move(san);
-      // Moves name the opponent since November 2026; older ones don't, so try both.
-      const [move] = [players[1 - (i % 2)], undefined]
-        .map((opponent) => {
-          const event = {
-            ...build.move(addr, i + 1, prev, san, after, at, opponent),
-            pubkey: sessions[i % 2],
-            sig,
-          };
-          return { ...event, id: getEventHash(event) };
-        })
-        .filter((event) => verifyEvent({ ...event } as Event));
-      if (!move) throw new Error(`move ${i + 1} doesn't verify`);
-      prev = move.id;
-      return move;
+      const move = {
+        ...build.move(addr, i + 1, prev, san, after, at),
+        pubkey: sessions[i % 2],
+        sig,
+      };
+      prev = getEventHash(move);
+      return { ...move, id: prev };
     });
-    const events = [...head, ...extra];
-    return events.every((event) => verifyEvent({ ...event } as Event))
-      ? [...head, ...moves, ...extra]
-      : null;
+    const events = [...head, ...moves, ...extra];
+    return events.every((event) => verifyEvent({ ...event } as Event)) ? events : null;
   } catch {
     return null;
   }

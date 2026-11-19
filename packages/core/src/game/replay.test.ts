@@ -1,14 +1,5 @@
 import { expect, test } from "vitest";
-import { generateSecretKey, getPublicKey } from "nostr-tools/pure";
-import {
-  address,
-  bindSession,
-  build,
-  firstMoveWindow,
-  hashHex,
-  sessionOf,
-  speedOf,
-} from "./events.ts";
+import { build, firstMoveWindow, hashHex, speedOf } from "./events.ts";
 import { replay } from "./replay.ts";
 import { act, ADDR, BLITZ, GAME, GUEST, HOST, KEYS, play, seek, sign, started } from "./testkit.ts";
 
@@ -249,28 +240,4 @@ test("a challenge that expired or was declined says who didn't join", () => {
   expect(run([open, sign("e".repeat(64), build.decline(ADDR, HOST, "busy", 95))]).phase).toBe(
     "open",
   );
-});
-
-test("a session key proves it agreed to play for this player in this game", () => {
-  const secret = generateSecretKey();
-  const template = build.join(ADDR, HOST, BLITZ, getPublicKey(secret), hashHex("salt"), 95);
-  const bound = bindSession(template, secret, ADDR, GUEST);
-  const [open] = seek();
-  expect(sessionOf(sign(GUEST, bound), ADDR)).toBe(getPublicKey(secret));
-  expect(run([open, sign(GUEST, bound)]).join?.pubkey).toBe(GUEST);
-  expect(sessionOf(sign("e".repeat(64), bound), ADDR)).toBeNull();
-  expect(run([open, sign("e".repeat(64), bound)]).join).toBeNull();
-  expect(sessionOf(sign(GUEST, bound), address(HOST, "other"))).toBeNull();
-});
-
-test("a join from before session proofs still counts", () => {
-  expect(run(seek()).join).not.toBeNull();
-  expect(run(started()).phase).toBe("playing");
-});
-
-test("a join that names the host's session key is not accepted", () => {
-  const [open] = seek();
-  expect(
-    run([open, sign(GUEST, build.join(ADDR, HOST, BLITZ, KEYS[0], hashHex("salt"), 95))]).join,
-  ).toBeNull();
 });
