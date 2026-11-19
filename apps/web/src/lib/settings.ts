@@ -11,6 +11,8 @@ export type Settings = {
   volume: number;
   music: boolean;
   musicVolume: number;
+  /** Whether the music was on when the header button silenced everything. */
+  musicWas: boolean;
   chat: boolean;
   /** Keys whose chat lines this browser hides. */
   muted: string[];
@@ -26,6 +28,7 @@ export const DEFAULTS: Settings = {
   volume: 0.7,
   music: false,
   musicVolume: 0.4,
+  musicWas: false,
   chat: true,
   muted: [],
 };
@@ -51,6 +54,7 @@ export function loadSettings(store: Store): Settings {
     volume: level(raw.volume, DEFAULTS.volume),
     music: flag(raw.music, DEFAULTS.music),
     musicVolume: level(raw.musicVolume, DEFAULTS.musicVolume),
+    musicWas: flag(raw.musicWas, DEFAULTS.musicWas),
     chat: flag(raw.chat, DEFAULTS.chat),
     muted: Array.isArray(raw.muted)
       ? [
@@ -71,3 +75,11 @@ export const mute = (settings: Settings, pubkey: string, on: boolean): Settings 
     ? [...new Set([...settings.muted, pubkey])]
     : settings.muted.filter((key) => key !== pubkey),
 });
+
+export const audible = ({ sound, music }: Settings) => sound || music;
+
+/** The header's one button: silences sounds and music, or brings both back as they were. */
+export const toggleAudio = (settings: Settings): Settings =>
+  audible(settings)
+    ? { ...settings, sound: false, music: false, musicWas: settings.music }
+    : { ...settings, sound: true, music: settings.musicWas };

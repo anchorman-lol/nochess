@@ -68,6 +68,24 @@ test("landing, lobby, game, settings, zaps, a paid bot and an invoice render wit
   await shoot("game", "[data-testid=chat]", game);
   await shoot("settings", "[data-testid=settings-chat]", "/#/settings");
 
+  await guest.goto("/#/settings#profile");
+  const editor = guest.getByTestId("profile-editor");
+  await editor.getByLabel("Name", { exact: true }).fill("guest");
+  await editor.getByLabel("Display name").fill("The Guest");
+  await editor.getByLabel("About").fill("Plays the Caro-Kann, slowly.");
+  await editor.getByTestId("profile-save").click();
+  await expect(editor.getByRole("status")).toHaveText("Published.");
+  await expect(editor.getByLabel("Lightning address")).toHaveValue(`guest@${ZAP_HOST}`);
+  await shoot("profile", "[data-testid=profile-editor]", undefined, guest);
+
+  await white.goto("/#/play");
+  await white.getByTestId("relay-status").click();
+  await white.getByTestId("relay-add").fill("wss://relay.example/");
+  await white.getByTestId("relay-add").press("Enter");
+  await expect(white.getByTestId("relay")).toHaveCount(2);
+  await shoot("relays", "[data-testid=relays]", undefined, white);
+  await white.keyboard.press("Escape");
+
   const watcher = watch(await player(browser));
   await watcher.goto(game);
   await watcher.getByTestId("game-zaps").getByText("Zap both players").click();

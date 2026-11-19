@@ -3,11 +3,11 @@ import * as nip19 from "nostr-tools/nip19";
 import { generateSecretKey, getPublicKey, type VerifiedEvent } from "nostr-tools/pure";
 import { KIND, type Template } from "@luft/core/game/events.ts";
 import { keySigner, type Signer } from "@luft/core/nostr/net.ts";
+import { RELAY_STORE, RELAYS_STORE, relaysFrom } from "./relays.ts";
 
 const KEY_STORE = "luft:key";
-const RELAY_STORE = "luft:relay";
 /** Ours first; the public ones keep the app playable while it is down. */
-const DEFAULT_RELAYS = import.meta.env.VITE_RELAY_URL
+export const DEFAULT_RELAYS = import.meta.env.VITE_RELAY_URL
   ? [import.meta.env.VITE_RELAY_URL]
   : import.meta.env.PROD
     ? ["wss://relay.anchorman.lol", "wss://nos.lol", "wss://relay.damus.io"]
@@ -65,12 +65,18 @@ export function parsePubkey(text: string): string {
   }
 }
 
-export const relayUrls = () => {
-  const chosen = sessionStorage.getItem(RELAY_STORE) || localStorage.getItem(RELAY_STORE);
-  return chosen ? [chosen] : DEFAULT_RELAYS;
-};
+export const relayUrls = () => relaysFrom(sessionStorage, localStorage, DEFAULT_RELAYS);
+export const savedRelays = () => relaysFrom({ getItem: () => null }, localStorage, DEFAULT_RELAYS);
+/** Whether this tab follows the relay a share link named, not the player's list. */
+export const sharedRelay = () => Boolean(sessionStorage.getItem(RELAY_STORE));
 /** Uses the relay a share link names, for this tab only. */
 export const followRelayHint = (url: string) => sessionStorage.setItem(RELAY_STORE, url);
+/** Saves the player's list, and lets this tab follow it again. */
+export function saveRelays(list: string[]) {
+  localStorage.setItem(RELAYS_STORE, JSON.stringify(list));
+  localStorage.removeItem(RELAY_STORE);
+  sessionStorage.removeItem(RELAY_STORE);
+}
 
 /** A link to a game that carries its relay, as a NIP-19 naddr. */
 export const gameLink = (host: string, gameId: string, relay: string) =>

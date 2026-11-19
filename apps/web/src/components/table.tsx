@@ -232,3 +232,5 @@ export const btn =
   "inline-flex h-10 items-center justify-center gap-1.5 rounded-[0.55rem] border border-line bg-background px-3 font-semibold whitespace-nowrap transition-[background,border-color,transform] duration-150 hover:border-muted-foreground active:translate-y-px disabled:opacity-45 disabled:pointer-events-none";
 export const btnPrimary =
   "border-brand bg-brand text-brand-ink hover:border-brand hover:bg-brand/90";
+export const field =
+  "h-10 w-full min-w-0 rounded-[0.55rem] border border-line bg-background px-3 text-foreground placeholder:text-muted-foreground";

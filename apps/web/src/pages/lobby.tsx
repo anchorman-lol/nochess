@@ -13,14 +13,15 @@ import {
   PlayerLink,
   RatingOf,
   Section,
+  ShowRating,
   Signed,
 } from "../components/common.tsx";
+import { field } from "../components/table.tsx";
 import {
   gameHref,
   plural,
   seekHref,
   shortKey,
-  showRating,
   tcLabel,
   terms,
   TIME_CONTROLS,
@@ -44,8 +45,6 @@ const change = (name: string, value: string | boolean) => lobbyRoute()?.change(n
 export const button =
   "inline-flex h-10 items-center justify-center gap-1.5 rounded-[0.55rem] border border-line bg-background px-3.5 font-semibold whitespace-nowrap transition-[background,border-color,transform] duration-150 hover:border-muted-foreground active:translate-y-px disabled:opacity-45 disabled:pointer-events-none";
 export const primary = "border-brand bg-brand text-brand-ink hover:border-brand hover:bg-brand/90";
-export const input =
-  "h-10 w-full min-w-0 rounded-[0.55rem] border border-line bg-background px-3 text-foreground placeholder:text-muted-foreground";
 
 export function Lobby({ model }: { model: LobbyModel }) {
   return (
@@ -72,7 +71,12 @@ function Pairing({ model }: { model: LobbyModel }) {
     const waiting = model.seeks.filter((s) => s.tc === tc && !s.mine && !s.forMe).length;
     const mine = model.seeks.find((s) => s.tc === tc && s.mine && !s.guest);
     const base =
-      "flex flex-1 items-baseline justify-center gap-2 border-r border-line px-2 py-4 last:border-r-0 transition-colors duration-150 max-sm:flex-col max-sm:items-center max-sm:gap-0.5 max-sm:py-3";
+      "flex min-h-14 flex-col items-center justify-center gap-0.5 border-r border-line last:border-r-0 px-2 py-2.5 transition-colors duration-150 focus-visible:z-10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand";
+    const face = (
+      <b className="text-[1.2rem] leading-none font-semibold tracking-[-0.01em] tabular-nums">
+        {time}
+      </b>
+    );
     if (mine || model.pending === tc)
       return (
         <button
@@ -83,27 +87,30 @@ function Pairing({ model }: { model: LobbyModel }) {
           data-testid="seeking"
           onClick={() => act("cancel-seek", { game: mine?.gameId ?? "" })}
         >
-          <b className="text-[1.35rem] leading-none font-semibold tracking-[-0.01em] tabular-nums">
-            {time}
-          </b>
-          <span className="text-[0.82rem] font-semibold text-brand">
+          {face}
+          <span className="text-[0.8rem] font-semibold text-brand">
             Seeking… <u>Cancel</u>
           </span>
         </button>
       );
+    const picked = tc === model.tc;
     return (
       <button
         key={tc}
         type="button"
-        className={cn(base, "hover:bg-brand-soft", tc === model.tc && "bg-surface")}
+        className={cn(
+          base,
+          "hover:bg-brand-soft",
+          picked && "text-brand shadow-[inset_0_0_0_2px_var(--brand)]",
+        )}
         data-tc={tc}
+        data-picked={picked || undefined}
+        title={picked ? `${tcLabel(tc)}, your last time` : tcLabel(tc)}
         onClick={() => act("quick", { tc })}
       >
-        <b className="text-[1.35rem] leading-none font-semibold tracking-[-0.01em] tabular-nums">
-          {time}
-        </b>
+        {face}
         {waiting > 0 && (
-          <span className="text-[0.82rem] font-semibold text-brand">
+          <span className="text-[0.8rem] font-semibold text-brand">
             {plural(waiting, "player")} waiting
           </span>
         )}
@@ -127,18 +134,28 @@ function Pairing({ model }: { model: LobbyModel }) {
         {ROWS.map((row) => (
           <div
             key={row.speed}
-            className="grid border-b border-line last:border-b-0 sm:grid-cols-[8.5rem_1fr]"
+            className="grid border-b border-line last:border-b-0 sm:grid-cols-[8rem_1fr]"
           >
-            <div className="flex items-baseline justify-between border-b border-line bg-surface px-3 py-1.5 sm:flex-col sm:justify-center sm:border-r sm:border-b-0 sm:px-4 sm:py-3">
+            <div className="flex items-baseline gap-2 border-b border-line bg-surface px-3 py-1.5 sm:flex-col sm:justify-center sm:gap-0 sm:border-r sm:border-b-0 sm:px-4">
               <b className="font-bold">{row.speed}</b>
-              <small className="text-[0.82rem] text-muted-foreground">{row.note}</small>
+              <small className="text-[0.8rem] text-muted-foreground">{row.note}</small>
             </div>
-            <div className="flex">{row.tcs.map(cell)}</div>
+            <div className="grid grid-cols-3">
+              {row.tcs.map(cell)}
+              {Array.from({ length: 3 - row.tcs.length }, (_, i) => (
+                <span
+                  key={i}
+                  aria-hidden
+                  className="border-r border-line bg-surface/50 last:border-r-0"
+                />
+              ))}
+            </div>
           </div>
         ))}
       </div>
-      <Hint className="mt-2.5">
-        A time joins a player already waiting for that game, or opens a seek for others to find.
+      <Hint className="mt-2.5 max-w-[68ch]" data-testid="pairing-hint">
+        Pick a time to play {model.rated ? "rated" : "casual"}: you join a player already waiting
+        for it, or your seek waits for the next one. The outlined time is the one you last picked.
       </Hint>
     </section>
   );
@@ -350,7 +367,7 @@ function StartPanel({ model }: { model: LobbyModel }) {
                 name="npub"
                 placeholder="npub1…"
                 aria-label="Player to challenge"
-                className={input}
+                className={field}
               />
             </label>
             <Times model={model} />
@@ -448,7 +465,7 @@ function Bots({ model }: { model: LobbyModel }) {
                 <PlayerLink pubkey={bot.pubkey} />
                 {bot.rating && (
                   <span className="rating text-muted-foreground tabular-nums">
-                    {showRating(bot.rating)}
+                    <ShowRating rating={bot.rating} />
                   </span>
                 )}
               </span>
@@ -497,7 +514,9 @@ function Ranks({ model }: { model: LobbyModel }) {
               <span className="text-[0.87rem] text-muted-foreground">
                 {speed} · {plural(rating.games, "game")}
               </span>
-              <b className="rating tabular-nums">{showRating(rating)}</b>
+              <b className="rating tabular-nums">
+                <ShowRating rating={rating} />
+              </b>
             </li>
           ))
         ) : (
@@ -535,7 +554,14 @@ function You({ model }: { model: LobbyModel }) {
             </code>
           </a>
           , signing with{" "}
-          {source === "extension" ? "your Nostr extension" : "a key kept in this browser"}.
+          {source === "extension" ? "your Nostr extension" : "a key kept in this browser"}.{" "}
+          <a
+            href="#/settings#profile"
+            className="font-semibold text-brand"
+            data-testid="edit-profile"
+          >
+            Edit profile
+          </a>
         </span>
       </p>
       {source !== "extension" && (
@@ -560,7 +586,7 @@ function You({ model }: { model: LobbyModel }) {
                   placeholder="you@wallet.example"
                   aria-label="Lightning address"
                   data-testid="lud16"
-                  className={input}
+                  className={field}
                 />
                 <button className={button}>Save</button>
               </form>
@@ -574,7 +600,7 @@ function You({ model }: { model: LobbyModel }) {
               placeholder="nostr+walletconnect://…"
               aria-label="Nostr Wallet Connect"
               data-testid="nwc"
-              className={input}
+              className={field}
             />
             <button className={button}>Connect</button>
           </form>
@@ -594,7 +620,7 @@ function You({ model }: { model: LobbyModel }) {
             type="password"
             placeholder="nsec1…"
             aria-label="Secret key"
-            className={input}
+            className={field}
           />
           <button className={cn(button, "whitespace-nowrap")}>Use this key</button>
         </form>

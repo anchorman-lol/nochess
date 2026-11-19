@@ -1,8 +1,9 @@
 import { Icon } from "@luft/ui/components/icon";
 import { Wordmark } from "@luft/ui/components/logo";
-import { cn } from "cn";
 import type { ReactNode } from "react";
-import { route, setSettings, settings, status } from "../app/store.ts";
+import { route, setSettings, settings } from "../app/store.ts";
+import { audible, toggleAudio } from "../lib/settings.ts";
+import { RelayButton } from "./relays.tsx";
 
 const NAV = [
   { href: "#/play", label: "Play", name: "lobby", testid: "home" },
@@ -11,7 +12,6 @@ const NAV = [
 
 /** The top bar: wordmark, Play and About, the relay, sound and theme. Then the page. */
 export function Shell({ children }: { children: ReactNode }) {
-  const { online, relay } = status();
   const dark = document.documentElement.dataset.theme === "dark";
   const next = dark ? "light" : "dark";
   return (
@@ -34,25 +34,13 @@ export function Shell({ children }: { children: ReactNode }) {
           ))}
         </nav>
         <div className="ml-auto flex items-center sm:gap-1">
-          <span
-            data-testid="relay-status"
-            title={`Moves travel through ${relay}`}
-            className="mr-1.5 flex items-center gap-2 text-[0.87rem] sm:mr-2 text-muted-foreground"
-          >
-            <i
-              className={cn(
-                "size-2 rounded-full",
-                online ? "bg-good" : "animate-pulse bg-muted-foreground",
-              )}
-            />
-            <span className="max-sm:sr-only">{online ? "relay connected" : "connecting…"}</span>
-          </span>
+          <RelayButton />
           <IconButton
-            label={settings.sound ? "Turn sounds off" : "Turn sounds on"}
+            label={`Turn sounds and music ${audible(settings) ? "off" : "on"}`}
             testid="sound"
-            onClick={() => setSettings({ ...settings, sound: !settings.sound })}
+            onClick={() => setSettings(toggleAudio(settings))}
           >
-            <Icon name={settings.sound ? "sound" : "muted"} />
+            <Icon name={audible(settings) ? "sound" : "muted"} />
           </IconButton>
           <IconButton
             label={`Switch to ${next} theme`}

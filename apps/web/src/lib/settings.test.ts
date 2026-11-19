@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULTS, loadSettings, mute, saveSettings, type Settings } from "./settings.ts";
+import {
+  audible,
+  DEFAULTS,
+  loadSettings,
+  mute,
+  saveSettings,
+  type Settings,
+  toggleAudio,
+} from "./settings.ts";
 
 const memory = (items: Record<string, string> = {}) => {
   const data = new Map(Object.entries(items));
@@ -57,5 +65,23 @@ describe("settings", () => {
     expect(mute(once, key, false).muted).toEqual([]);
     const store = memory({ "luft:settings": JSON.stringify({ muted: [key, "nope", key] }) });
     expect(loadSettings(store).muted).toEqual([key]);
+  });
+
+  it("turn sounds and music off together, and back on with the music as it was", () => {
+    const playing = { ...DEFAULTS, music: true };
+    const off = toggleAudio(playing);
+    expect(off).toMatchObject({ sound: false, music: false });
+    expect(audible(off)).toBe(false);
+    expect(toggleAudio(off)).toMatchObject({ sound: true, music: true });
+    const store = memory();
+    saveSettings(store, off);
+    expect(toggleAudio(loadSettings(store))).toMatchObject({ sound: true, music: true });
+    expect(toggleAudio(toggleAudio(DEFAULTS))).toMatchObject({ sound: true, music: false });
+  });
+
+  it("count as audible while either sounds or music is on", () => {
+    const musicOnly = { ...DEFAULTS, sound: false, music: true };
+    expect(audible(musicOnly)).toBe(true);
+    expect(toggleAudio(musicOnly)).toMatchObject({ sound: false, music: false });
   });
 });

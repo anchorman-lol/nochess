@@ -37,7 +37,12 @@ import {
   parseGameLink,
   parsePubkey,
   relayUrls,
+  saveRelays,
+  savedRelays,
+  sharedRelay,
 } from "../nostr/browser.ts";
+import { mergeProfile, type ProfileEdits } from "../nostr/profile.ts";
+import { editRelays, type RelayEdit } from "../nostr/relays.ts";
 import { zapper } from "../zap/sheet.ts";
 import { setNwc, walletName } from "../zap/wallet.ts";
 
@@ -184,6 +189,26 @@ export const zap = zapper(net, who, PLATFORM?.pubkey ?? null, () => paint());
 export const wallet = () =>
   DEV_WALLET && window.webln ? "the dev wallet (play money)" : walletName();
 export const nameOf = (pubkey: string) => who(pubkey).name || shortKey(pubkey);
+
+/** My newest kind 0, from the relay or what this page already has. */
+export async function ownProfile(): Promise<GameEvent | undefined> {
+  const fetched = await net.fetch([{ kinds: [KIND.profile], authors: [me] }]);
+  fetched.forEach(keep);
+  return profiles.get(me);
+}
+/** Publishes my kind 0 with the edits merged into the newest one, so other apps' fields stay. */
+export async function saveProfile(edits: ProfileEdits) {
+  const old = await ownProfile();
+  const tags = (old?.tags ?? []).filter(([name, value]) => !(name === "t" && value === TOPIC));
+  keep(
+    await net.publish({
+      kind: KIND.profile,
+      created_at: Math.max(nowSec(), (old?.created_at ?? 0) + 1),
+      tags: [...tags, ["t", TOPIC]],
+      content: mergeProfile(old?.content, edits),
+    }),
+  );
+}
 
 /** Every archived game, audited one at a time so a long list never freezes the page. */
 const notes = new Map<string, GameEvent>();
@@ -628,20 +653,7 @@ function lobby(): Route {
       } else if (form === "lud16") {
         if (value && !payUrl({ lud16: value, lud06: "" }))
           error = "That isn't a lightning address: it looks like name@wallet.example.";
-        else {
-          let old = {};
-          try {
-            old = JSON.parse(profiles.get(me)?.content ?? "{}");
-          } catch {
-            // a profile that isn't JSON is replaced
-          }
-          void net.publish({
-            kind: KIND.profile,
-            created_at: nowSec(),
-            tags: [["t", TOPIC]],
-            content: JSON.stringify({ ...old, lud16: value || undefined }),
-          });
-        }
+        else void saveProfile({ lud16: value });
       } else if (form === "nwc") {
         if (!setNwc(value)) error = "That isn't a Nostr Wallet Connect link.";
       } else if (form === "key" && importKey(value)) return location.reload();
@@ -978,7 +990,7 @@ export function navigate() {
   route?.leave();
   zap.act("zap-close");
   view = fresh();
-  const hash = location.hash;
+  const [hash, anchor] = location.hash.split(/(?!^)#/);
   const level = Number(hash.match(/^#\/computer\/([1-8])$/)?.[1]);
   const { host, gameId, relay } = parseGameLink(hash);
   if (relay && /^wss?:\/\//.test(relay) && relay !== net.url) {
@@ -1000,9 +1012,30 @@ export function navigate() {
             : lobby();
   window.scrollTo(0, 0);
   paint();
+  if (anchor) reveal(anchor);
+}
+
+/** Scrolls to a section of the page once its lazily loaded route has rendered it. */
+function reveal(id: string, tries = 0) {
+  const section = document.getElementById(id);
+  if (section) section.scrollIntoView({ behavior: "smooth" });
+  else if (tries < 120) requestAnimationFrame(() => reveal(id, tries + 1));
 }
 
 export const status = () => ({ online: net.online, relay: net.url });
+
+/** The player's relays, and whether this tab follows a share link's instead. */
+export const relays = () => ({ list: savedRelays(), shared: sharedRelay() });
+/** Changes the player's relays; reconnects when the relay to use first is another. False if refused. */
+export function editRelay(edit: RelayEdit, url: string): boolean {
+  const list = editRelays(savedRelays(), edit, url);
+  if (!list) return false;
+  const reconnect = sharedRelay() || list[0] !== net.url;
+  saveRelays(list);
+  if (reconnect) location.reload();
+  else paint();
+  return true;
+}
 
 /** The zap dialog's input, repainting after each change. */
 export const zapSheet = {

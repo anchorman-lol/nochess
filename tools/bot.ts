@@ -12,15 +12,17 @@ import {
   TOPIC,
 } from "../packages/core/src/game/events.ts";
 import { turnOf } from "../packages/core/src/game/replay.ts";
-import { Table } from "../packages/core/src/game/table.ts";
+import { sessionKey, Table } from "../packages/core/src/game/table.ts";
 import { payment } from "../packages/core/src/zap/fee.ts";
 import { readZap, type Zap } from "../packages/core/src/zap/zap.ts";
-import { connect, enginePipe, nowSec, RELAY, servicePoint, short } from "./node.ts";
+import { connect, enginePipe, fileStore, nowSec, RELAY, servicePoint, short } from "./node.ts";
 
 const SKILL = Number(process.env.LUFT_BOT_SKILL ?? 20);
 const MOVE_MS = Number(process.env.LUFT_BOT_MS ?? 300);
 const NAME = process.env.LUFT_BOT_NAME ?? "Nochess bot";
 const PRICE = Number(process.env.LUFT_BOT_PRICE ?? 0) * 1000;
+/** Each table is a subscription, and relays cap them per connection (anchorman at 20). */
+const MAX_TABLES = Number(process.env.LUFT_BOT_TABLES ?? 15);
 const modes = (process.env.LUFT_BOT_MODES ?? "rated,casual").split(",");
 const content = JSON.stringify({
   name: NAME,
@@ -38,7 +40,8 @@ const content = JSON.stringify({
 const profile = profileOf({ content });
 const point = PRICE ? await servicePoint(profile.lud16) : null;
 
-const net = connect(process.env.LUFT_BOT_ID ?? "bot");
+const id = process.env.LUFT_BOT_ID ?? "bot";
+const net = connect(id);
 const me = net.signer.pubkey;
 /** Checked zaps to this bot, and the receipts its joins have spent. */
 const zaps = new Map<string, Zap>();
@@ -47,11 +50,7 @@ const expiry = new Map<string, number>();
 const joined = new Set<string>();
 let ledger = !point;
 const engine = new Engine(enginePipe(), SKILL);
-const memory = new Map<string, string>();
-const store = {
-  getItem: (key: string) => memory.get(key) ?? null,
-  setItem: (key: string, value: string) => void memory.set(key, value),
-};
+const store = fileStore(`.keys/${id}-sessions.json`);
 const tables = new Map<string, Table>();
 const asked = new Set<string>();
 let thinking: Promise<unknown> = Promise.resolve();
@@ -82,6 +81,7 @@ function step(table: Table) {
       `${game.addr.slice(-8)} ${game.result ? `${game.result} by ${game.termination}` : "withdrawn"}`,
     );
     tables.delete(game.addr);
+    store.forget(game.addr);
     setTimeout(() => table.close(), 5000);
   }
 }
@@ -109,10 +109,16 @@ net.subscribe([{ kinds: [KIND.game], "#p": [me], "#t": [TOPIC] }], (event) => {
   const gameId = tagValue(event, "d") ?? "";
   const addr = address(event.pubkey, gameId);
   const expires = Number(tagValue(event, "expiration"));
-  if (tagValue(event, "status") !== "open" || expires < nowSec()) return;
-  expiry.set(addr, expires);
-  if (tables.has(addr) || !covers(profile, termsOf(event))) return;
-  console.log(`challenge ${addr.slice(-8)} from ${short(event.pubkey)}, ${tagValue(event, "tc")}`);
+  const open = tagValue(event, "status") === "open" && expires >= nowSec();
+  const resumed = tagValue(event, "status") === "playing" && store.getItem(sessionKey(addr));
+  if (open) expiry.set(addr, expires);
+  if (tables.has(addr) || !(resumed || (open && covers(profile, termsOf(event))))) return;
+  if (resumed) joined.add(addr);
+  else if (tables.size >= MAX_TABLES)
+    return console.log(`busy: ${tables.size} tables, ${addr.slice(-8)} left alone`);
+  console.log(
+    `${resumed ? "resuming" : "challenge"} ${addr.slice(-8)} from ${short(event.pubkey)}, ${tagValue(event, "tc")}`,
+  );
   const table: Table = new Table(net, event.pubkey, gameId, store, () => step(table));
   tables.set(addr, table);
 });

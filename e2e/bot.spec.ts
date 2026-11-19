@@ -7,11 +7,12 @@ import { paid, service, stored, ZAP_HOST } from "./play.ts";
 const PAYBOT_KEY = Buffer.from("3".repeat(64), "hex");
 
 let bots: ChildProcess[];
+const env = { LUFT_BOT_MS: "30" };
+const freeBot = () => service(["tools/bot.ts"], { ...env, LUFT_BOT_KEY: "1".repeat(64) }, "ready");
 
 test.beforeAll(async () => {
-  const env = { LUFT_BOT_MS: "30" };
   bots = await Promise.all([
-    service(["tools/bot.ts"], { ...env, LUFT_BOT_KEY: "1".repeat(64) }, "ready"),
+    freeBot(),
     service(
       ["tools/bot.ts"],
       {
@@ -73,6 +74,31 @@ test("a player challenges the bot account and plays a rated game to the end", as
   await expect(page.getByTestId("bots").locator("li", { hasText: "Nochess bot" })).toContainText(
     /\d{4}/,
   );
+});
+
+test("a bot that restarts mid-game still answers the moves of the games it sits in", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await page.goto("/#/play");
+  await page.getByRole("tab", { name: "A bot" }).click();
+  await page
+    .getByTestId("bots")
+    .locator("li", { hasText: "Nochess bot" })
+    .getByTestId("challenge-bot")
+    .click();
+  const table = page.getByTestId("table");
+  await expect(table).toBeVisible();
+  const seat = (await table.getAttribute("data-seat"))!;
+  await expect(table).toHaveAttribute("data-turn", seat);
+  bots[0].kill();
+  bots[0] = await freeBot();
+  const fen = (await page.getByTestId("board").getAttribute("data-fen"))!;
+  const [{ from, to }] = new Chess(fen).moves({ verbose: true });
+  await page.getByTestId(`sq-${from}`).click();
+  await page.getByTestId(`sq-${to}`).click();
+  await expect(table).not.toHaveAttribute("data-turn", seat);
+  await expect(table).toHaveAttribute("data-turn", seat, { timeout: 20_000 });
 });
 
 test("a bot with a price joins only once the challenge is paid, and then plays", async ({

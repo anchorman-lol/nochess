@@ -2,7 +2,7 @@
 
 Nochess is chess between Nostr keys. There is no game server: every action is a signed event on a relay, and `replay()` in `packages/core/src/game/replay.ts` rebuilds a game from whatever events it is given. The same events give the same game for everyone, so that function is the only judge. The wider proposal (prior art, money, phases) is a separate document; this file is what the code does.
 
-The client uses one relay at a time. A build sets it with `VITE_RELAY_URL`; without one, production tries wss://relay.anchorman.lol first and falls back to wss://nos.lol and then wss://relay.damus.io while it can't be reached, starting from the top again after each drop (`Net` in `packages/core/src/nostr/net.ts`). Games and ratings on one relay don't show on another, so a fallback keeps the app playable rather than in sync.
+The client uses one relay at a time. A build sets it with `VITE_RELAY_URL`; without one, production tries wss://relay.anchorman.lol first and falls back to wss://nos.lol and then wss://relay.damus.io while it can't be reached, starting from the top again after each drop (`Net` in `packages/core/src/nostr/net.ts`). Games and ratings on one relay don't show on another, so a fallback keeps the app playable rather than in sync. The player can change that list from the relay status in the header (add, remove, move up, use one now); it is kept in localStorage as `luft:relays`, and a game link that names a relay still wins for its tab.
 
 ## Events
 

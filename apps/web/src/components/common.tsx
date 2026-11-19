@@ -3,7 +3,8 @@ import { Icon } from "@luft/ui/components/icon";
 import { cn } from "cn";
 import type { ReactNode } from "react";
 import { me, rate, who } from "../app/store.ts";
-import { plural, shortKey, showRating } from "../lib/format.ts";
+import type { Rating } from "@luft/core/game/glicko.ts";
+import { plural, provisional, shortKey } from "../lib/format.ts";
 
 /** A name, with the BOT tag for bot accounts and "(you)" for this browser's key. */
 export function Player({ pubkey, you = true }: { pubkey: string; you?: boolean }) {
@@ -64,8 +65,28 @@ export function Avatar({
 export function RatingOf({ pubkey, speed }: { pubkey: string; speed: Speed | null }) {
   const rating = speed && rate(pubkey, speed);
   return rating ? (
-    <span className="rating text-muted-foreground tabular-nums">{showRating(rating)}</span>
+    <span className="rating text-muted-foreground tabular-nums">
+      <ShowRating rating={rating} />
+    </span>
   ) : null;
+}
+
+/** A rating, with a question mark that says so when it is still provisional. */
+export function ShowRating({ rating }: { rating: Rating }) {
+  return (
+    <>
+      {Math.round(rating.r)}
+      {provisional(rating) && (
+        <abbr
+          title="Provisional: fewer games played"
+          aria-label="provisional: fewer games played"
+          className="cursor-help no-underline"
+        >
+          ?
+        </abbr>
+      )}
+    </>
+  );
 }
 
 export function Zapped({ sats }: { sats: number }) {

@@ -25,7 +25,7 @@ export type Store = {
 };
 
 const nowSec = () => Math.floor(Date.now() / 1000);
-const sessionKey = (addr: string) => `luft:session:${addr}`;
+export const sessionKey = (addr: string) => `luft:session:${addr}`;
 const saltKey = (addr: string) => `luft:salt:${addr}`;
 
 /** Opens a seek, or a challenge to one player, and returns its game id. */

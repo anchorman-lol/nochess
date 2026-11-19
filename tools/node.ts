@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { createInterface } from "node:readline";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 import { generateSecretKey } from "nostr-tools/pure";
@@ -26,6 +27,29 @@ export function secretOf(name: string): Uint8Array {
   return hexToBytes(hex);
 }
 export const connect = (name: string) => new Net(RELAY, keySigner(secretOf(name)));
+
+/** A service's game keys in a file, so a restart can still sign for the games it sits in. */
+export function fileStore(file: string) {
+  const items: Record<string, string> = existsSync(file)
+    ? JSON.parse(readFileSync(file, "utf8"))
+    : {};
+  const save = () => {
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, JSON.stringify(items), { mode: 0o600 });
+  };
+  return {
+    getItem: (key: string) => items[key] ?? null,
+    setItem(key: string, value: string) {
+      items[key] = value;
+      save();
+    },
+    /** Drops every key of one game. */
+    forget(addr: string) {
+      for (const key of Object.keys(items)) if (key.endsWith(addr)) delete items[key];
+      save();
+    },
+  };
+}
 
 /** Stockfish's WASM build as a child process that speaks UCI on its standard streams. */
 export function enginePipe(): Pipe {

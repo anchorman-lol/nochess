@@ -104,7 +104,8 @@ function Hero() {
               Play now
             </a>
             <a
-              href="#how"
+              href="#/about#how"
+              data-testid="cta-how"
               className={cn(cta, "border border-white/40 text-white hover:bg-white/10")}
             >
               How signing works

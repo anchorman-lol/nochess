@@ -27,8 +27,7 @@ export function tcLabel(tc: string): string {
 }
 export const terms = (tc: string, rated: boolean) =>
   `${tcLabel(tc)}, ${rated ? "rated" : "casual"}`;
-export const showRating = ({ r, rd }: Rating) =>
-  `${Math.round(r)}${rd >= PROVISIONAL_RD ? "?" : ""}`;
+export const provisional = ({ rd }: Rating) => rd >= PROVISIONAL_RD;
 export const satsTo = (zaps: Zap[], pubkeys: string[]) =>
   zaps.reduce((sum, zap) => sum + (pubkeys.includes(zap.to) ? zap.msat : 0), 0) / 1000;
 export const gameHref = (addr: string) => `#/${addr.split(":").slice(1).join("/")}`;

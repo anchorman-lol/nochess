@@ -2,22 +2,21 @@
 
 @source ".";
 
-/* The game: board as tall as the window, facts and chat left, the rail right. */
+/* The game: board as tall as the window, facts and chat left, the rail right, filling the width. */
 .game {
   --rail: 21.5rem;
   --slip: 15rem;
   --gap: 1.25rem;
   --bs: min(100dvh - 3.25rem - 2.5rem, 100vw - var(--rail) - var(--slip) - 2 * var(--gap) - 2.5rem);
-  grid-template-columns: var(--slip) var(--bs) var(--rail);
+  grid-template-columns: minmax(var(--slip), 1fr) var(--bs) minmax(var(--rail), 1fr);
   grid-template-rows: auto minmax(0, 1fr) auto auto;
   grid-template-areas: "slip board opp" "slip board sheet" "slip board acts" "slip board me";
-  justify-content: center;
   height: var(--bs);
 }
 @media (max-width: 1180px) {
   .game {
     --bs: min(100dvh - 3.25rem - 2.5rem, 100vw - var(--rail) - var(--gap) - 2.5rem);
-    grid-template-columns: var(--bs) var(--rail);
+    grid-template-columns: var(--bs) minmax(var(--rail), 1fr);
     grid-template-rows: auto minmax(12rem, 1fr) auto auto auto;
     grid-template-areas: "board opp" "board sheet" "board acts" "board me" "slip slip";
     height: auto;

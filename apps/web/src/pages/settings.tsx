@@ -1,12 +1,14 @@
 import { Slider } from "@luft/ui/components/slider";
 import { Switch } from "@luft/ui/components/switch";
 import { cn } from "cn";
-import type { ReactNode } from "react";
-import { setSettings, settings, sound } from "../app/store.ts";
+import { payUrl } from "@luft/core/zap/lnurl.ts";
+import { type FormEvent, type ReactNode, useEffect, useState } from "react";
+import { ownProfile, saveProfile, setSettings, settings, sound } from "../app/store.ts";
 import { Board, pieceUrl } from "../components/board.tsx";
 import { Hint, Player } from "../components/common.tsx";
-import { btn } from "../components/table.tsx";
+import { btn, btnPrimary, field } from "../components/table.tsx";
 import { BOARDS, mute, PIECES, type Settings, THEMES } from "../lib/settings.ts";
+import type { ProfileEdits } from "../nostr/profile.ts";
 
 const PREVIEW = "r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4";
 const BOARD_NAMES: Record<Settings["board"], [string, string]> = {
@@ -37,6 +39,7 @@ export function SettingsPage() {
       data-testid="settings-page"
     >
       <h1 className="text-[1.6rem] leading-tight font-extrabold tracking-[-0.02em]">Settings</h1>
+      <ProfileEditor />
       <Group title="Theme" hint="System follows your device.">
         <div
           className="inline-flex justify-self-start rounded-[0.6rem] bg-sunk p-0.5"
@@ -216,9 +219,111 @@ export function SettingsPage() {
   );
 }
 
-function Group({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+const FIELDS: [keyof ProfileEdits, string, string][] = [
+  ["name", "Name", "alekhine"],
+  ["display_name", "Display name", "Alexander Alekhine"],
+  ["picture", "Picture URL", "https://…/me.png"],
+  ["lud16", "Lightning address", "you@wallet.example"],
+  ["about", "About", "A line or two about you"],
+];
+
+/** Edits my kind 0: the fields shown change, every other field of it stays as it was. */
+function ProfileEditor() {
+  const [values, setValues] = useState<ProfileEdits | null>(null);
+  const [state, setState] = useState("");
+  useEffect(() => {
+    void ownProfile().then(
+      (event) => setValues(profileFields(event?.content)),
+      () => setValues({}),
+    );
+  }, []);
+  const save = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const edits = Object.fromEntries(new FormData(event.currentTarget)) as ProfileEdits;
+    if (edits.lud16?.trim() && !payUrl({ lud16: edits.lud16.trim(), lud06: "" }))
+      return setState("That isn't a lightning address: it looks like name@wallet.example.");
+    setState("Publishing…");
+    saveProfile(edits).then(
+      () => setState("Published."),
+      (reason) =>
+        setState(`The relay didn't take it: ${reason instanceof Error ? reason.message : reason}`),
+    );
+  };
   return (
-    <section className="grid gap-3 border-t border-line pt-5">
+    <Group
+      title="Profile"
+      id="profile"
+      hint="Your Nostr profile, signed with your key. Other Nostr apps show it too, and fields this app doesn't edit are kept."
+    >
+      {values ? (
+        <form className="grid gap-3 sm:grid-cols-2" onSubmit={save} data-testid="profile-editor">
+          {FIELDS.map(([name, label, placeholder]) => (
+            <label
+              key={name}
+              className={cn(
+                "grid gap-1 text-[0.87rem] font-semibold",
+                name === "about" && "sm:col-span-2",
+              )}
+            >
+              {label}
+              {name === "about" ? (
+                <textarea
+                  name={name}
+                  defaultValue={values[name]}
+                  placeholder={placeholder}
+                  rows={3}
+                  className={cn(field, "h-auto py-2 font-normal")}
+                />
+              ) : (
+                <input
+                  name={name}
+                  defaultValue={values[name]}
+                  placeholder={placeholder}
+                  className={cn(field, "font-normal")}
+                />
+              )}
+            </label>
+          ))}
+          <div className="flex items-center gap-3 sm:col-span-2">
+            <button className={cn(btn, btnPrimary)} data-testid="profile-save">
+              Publish profile
+            </button>
+            <span className="text-[0.9rem] text-muted-foreground" role="status">
+              {state}
+            </span>
+          </div>
+        </form>
+      ) : (
+        <Hint>Loading your profile…</Hint>
+      )}
+    </Group>
+  );
+}
+
+const profileFields = (content = "{}"): ProfileEdits => {
+  try {
+    const raw: Record<string, unknown> = JSON.parse(content) ?? {};
+    return Object.fromEntries(
+      FIELDS.map(([name]) => [name, typeof raw[name] === "string" ? raw[name] : ""]),
+    );
+  } catch {
+    return {};
+  }
+};
+
+function Group({
+  title,
+  hint,
+  id,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  id?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section id={id} className="grid scroll-mt-16 gap-3 border-t border-line pt-5">
       <div>
         <h2 className="text-lg font-bold">{title}</h2>
         {hint && <Hint className="max-w-[60ch]">{hint}</Hint>}

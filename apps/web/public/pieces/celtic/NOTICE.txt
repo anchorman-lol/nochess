@@ -1,0 +1,3 @@
+The Celtic pieces are Maurizio Monge's, from https://github.com/maurimo/chess-art,
+under the MIT licence in LICENSE. They are recoloured for Nochess: the colours
+changed, the drawings are his.

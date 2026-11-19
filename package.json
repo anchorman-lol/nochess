@@ -2,6 +2,7 @@
   "name": "luft",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "postinstall": "scripts/engine.sh",

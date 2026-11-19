@@ -17,12 +17,13 @@ import {
   None,
   Player,
   Section,
+  ShowRating,
   Zapped,
   ZapButton,
 } from "../components/common.tsx";
 import { btn } from "../components/table.tsx";
 import { mute } from "../lib/settings.ts";
-import { gameHref, plural, satsTo, shortKey, showRating } from "../lib/format.ts";
+import { gameHref, plural, satsTo, shortKey } from "../lib/format.ts";
 import { ResultRow } from "./lobby.tsx";
 
 export function ProfilePage({ model }: { model: ProfileModel }) {
@@ -100,7 +101,9 @@ export function ProfilePage({ model }: { model: ProfileModel }) {
                   ratings.map(([speed, rating]) => (
                     <tr key={speed} className="border-b border-line">
                       <td className="py-2 font-bold capitalize">{speed}</td>
-                      <td className="py-2 text-xl font-bold">{showRating(rating)}</td>
+                      <td className="py-2 text-xl font-bold">
+                        <ShowRating rating={rating} />
+                      </td>
                       <td className="py-2 text-muted-foreground">{plural(rating.games, "game")}</td>
                     </tr>
                   ))
