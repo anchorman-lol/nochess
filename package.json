@@ -4,7 +4,6 @@
   "private": true,
   "license": "MIT",
   "type": "module",
-  "packageManager": "pnpm@11.18.0",
   "scripts": {
     "postinstall": "scripts/engine.sh",
     "dev": "scripts/dev.sh",
@@ -37,5 +36,6 @@
     "oxlint": "1.94.0",
     "typescript": "catalog:",
     "vitest": "catalog:"
-  }
+  },
+  "packageManager": "pnpm@11.18.0"
 }

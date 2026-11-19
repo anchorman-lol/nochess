@@ -1,7 +1,7 @@
 import { bytesToHex, hexToBytes, randomBytes } from "@noble/hashes/utils.js";
 import { Chess } from "chess.js";
 import { generateSecretKey } from "nostr-tools/pure";
-import { keySigner, type Net, type Signer } from "../nostr/net.ts";
+import { deliver, keySigner, type Net, type Signer } from "../nostr/net.ts";
 import { archive } from "./archive.ts";
 import {
   type Action,
@@ -124,19 +124,11 @@ export class Table {
     this.tick();
   }
 
-  /** Signs once and sends until the relay has it, so a retry can never become a second move. */
+  /** Sends each thing once per table; `deliver` keeps a retry from becoming a second move. */
   private send(key: string, template: Template, signer: Signer) {
     if (this.sent.has(key)) return;
     this.sent.add(key);
-    void signer.sign(template).then(async (event) => {
-      for (let tries = 0; tries < 30; tries++) {
-        try {
-          return this.receive(await this.net.send(event));
-        } catch {
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-        }
-      }
-    });
+    void deliver(this.net, template, signer).then((event) => event && this.receive(event));
   }
 
   private tick() {

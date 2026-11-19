@@ -33,7 +33,7 @@ The tools read `NOCHESS_RELAY` (default `ws://127.0.0.1:7778`) and keep their ke
 ## What is in it
 
 - Seeks and direct challenges, blitz, rapid, classical and correspondence. No bullet. A seek can be withdrawn, and a quick-pairing tile seeks from the lobby. Nothing waits for ever: a seek or challenge withdraws itself when its countdown runs out, and a bot declines what it can't take.
-- Clocks from event timestamps, resign, draw by agreement, abort, automatic time claims. Each first move has Lichess's short limit; a game whose first move doesn't come is aborted, unrated, on the side that didn't move.
+- Clocks from event timestamps, which a relay that advertises a `created_at` window checks, resign, draw by agreement, abort, automatic time claims. Each first move has Lichess's short limit; a game whose first move doesn't come is aborted, unrated, on the side that didn't move.
 - A reliability record for every bot and player (challenges answered, time to answer, games abandoned), from public events, also published by the rater, and a price cap for bots without one.
 - Spectating by link, and a chat per game: the players talk freely, with quick phrases a tap away; spectators have a room of their own that players see once the game is over.
 - Full lists of games, live boards, open seeks and the leaderboard, loading older ones from the relay as you scroll.
