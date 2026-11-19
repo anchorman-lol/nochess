@@ -4,6 +4,7 @@
   "private": true,
   "license": "MIT",
   "type": "module",
+  "packageManager": "pnpm@11.18.0",
   "scripts": {
     "postinstall": "scripts/engine.sh",
     "dev": "scripts/dev.sh",
@@ -13,7 +14,6 @@
     "rate": "node tools/rater.ts",
     "zapmock": "node tools/zapmock.ts",
     "build": "pnpm -r typecheck && tsc && pnpm --filter @nochess/web build",
-    "deploy:pages": "scripts/pages.sh",
     "typecheck": "pnpm -r typecheck && tsc",
     "test": "vitest run",
     "test:e2e": "playwright test",
