@@ -1,0 +1,10 @@
+node_modules
+dist
+.relay-target
+.relay-data
+.relay-bin
+.keys
+test-results
+playwright-report
+.claude/worktrees
+public/engine
