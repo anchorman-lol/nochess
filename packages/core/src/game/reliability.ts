@@ -52,15 +52,17 @@ export function reliability(pubkey: string, sources: Sources, now: number): Reli
       !answers.has(zap.addr!),
   );
   for (const zap of unspent) asked.add(zap.addr!);
-  /** The answer can't come before the payment, so a paid challenge is timed from it. */
-  const startOf = (addr: string) => {
+  /** The answer can't come before the payment, so a paid challenge is timed from it; a later tip isn't one. */
+  const startOf = (addr: string, answer: GameEvent) => {
     const paid = Math.min(
-      ...zaps.filter((zap) => zap.addr === addr && zap.to === pubkey).map((zap) => zap.at),
+      ...zaps
+        .filter((zap) => zap.addr === addr && zap.to === pubkey && zap.at <= answer.created_at)
+        .map((zap) => zap.at),
     );
     return Number.isFinite(paid) ? paid : (opened.get(addr) ?? NaN);
   };
   const times = [...answers]
-    .map(([addr, answer]) => answer.created_at - startOf(addr))
+    .map(([addr, answer]) => answer.created_at - startOf(addr, answer))
     .filter(Number.isFinite)
     .map((seconds) => Math.max(0, seconds))
     .sort((a, b) => a - b);

@@ -27,6 +27,7 @@ export function PlayerLink({ pubkey, className }: { pubkey: string; className?: 
   return (
     <a
       href={`#/player/${pubkey}`}
+      title={who(pubkey).name || shortKey(pubkey)}
       className={cn("truncate font-semibold hover:text-brand", className)}
     >
       <Player pubkey={pubkey} />
