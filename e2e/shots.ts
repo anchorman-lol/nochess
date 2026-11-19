@@ -29,6 +29,7 @@ test("landing, lobby, game, settings, zaps, a paid bot and an invoice render wit
     },
     "ready",
   );
+  const freebot = await service(["tools/bot.ts"], { NOCHESS_BOT_KEY: "1".repeat(64) }, "ready");
   const [host, guest] = [watch(await player(browser)), watch(await player(browser))];
   const hostKey = await receiveZaps(host, "host");
   await receiveZaps(guest, "guest");
@@ -58,6 +59,7 @@ test("landing, lobby, game, settings, zaps, a paid bot and an invoice render wit
         await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
         if (url) await page.goto(url);
         await expect(page.locator(ready).first()).toBeVisible();
+        if (!url) await page.locator(ready).first().scrollIntoViewIfNeeded();
         await page.waitForTimeout(400);
         const overflow = await page.evaluate(
           () => document.documentElement.scrollWidth - innerWidth,
@@ -113,22 +115,28 @@ test("landing, lobby, game, settings, zaps, a paid bot and an invoice render wit
   const challenger = watch(await player(browser));
   await challenger.goto("/#/play");
   await challenger.getByRole("tab", { name: "A bot" }).click();
-  await shoot(
-    "lobby-bots",
-    "[data-testid=bot-record]",
-    undefined,
-    challenger,
-    [1440, 1024, 768, 390],
-  );
-  await challenger
-    .getByTestId("bots")
-    .locator("li", { hasText: "Paybot" })
-    .getByTestId("challenge-bot")
-    .click();
+  const botRows = challenger.getByTestId("bots").locator("li");
+  await expect(botRows.filter({ hasText: "Nochess bot" })).toBeVisible();
+  for (const width of [1440, 1024, 768, 390]) {
+    await shoot("lobby-bots", "[data-testid=bot-status]", undefined, challenger, [width]);
+    const heights = await botRows.evaluateAll((rows) =>
+      rows.map((row) => row.getBoundingClientRect().height),
+    );
+    expect(new Set(heights).size, `bot rows at ${width} are ${heights} px high`).toBe(1);
+  }
+  const paybotRow = botRows.filter({ hasText: "Paybot" });
+  for (const width of [1440, 390]) {
+    await challenger.setViewportSize({ width, height: 844 });
+    await paybotRow.getByTestId("bot-info").click();
+    await shoot("lobby-bot-record", "[data-testid=bot-record]", undefined, challenger, [width]);
+    await challenger.keyboard.press("Escape");
+  }
+  await paybotRow.getByTestId("challenge-bot").click();
   await shoot("waiting", "[data-testid=join-countdown]", undefined, challenger);
   await challenger.getByTestId("pay-fee").click();
   await shoot("paid-bot", "[data-testid=zap-go]", undefined, challenger);
   paybot.kill();
+  freebot.kill();
 
   expect(errors).toEqual([]);
 });

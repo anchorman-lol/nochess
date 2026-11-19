@@ -62,6 +62,10 @@ test("a player challenges the bot account and plays a rated game to the end", as
   const row = page.getByTestId("bots").locator("li", { hasText: "Nochess bot" });
   await expect(row.locator(".bot")).toHaveText("BOT");
   await expect(row.getByTestId("challenge-bot")).toHaveText("Challenge");
+  await row.getByTestId("bot-info").click();
+  await expect(page.getByTestId("bot-record")).toContainText(/new bot|answered/);
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("bot-record")).toBeHidden();
   await row.getByTestId("challenge-bot").click();
   await playOut(page);
   await page.getByTestId("home").click();

@@ -95,7 +95,7 @@ test("a tip on a game the bot joined is not a paid challenge it never joined", (
     { lobbies: [free.lobby], joins: [free.join], zaps: [zap("tip", "g1", 500)], verdicts: [] },
     NOW,
   );
-  expect(record).toMatchObject({ asked: 1, answered: 1, unspent: 0 });
+  expect(record).toMatchObject({ asked: 1, answered: 1, unspent: 0, median: 2 });
 });
 
 test("games abandoned are first moves never made and games lost on time", () => {

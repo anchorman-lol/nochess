@@ -1,5 +1,6 @@
-import { parseTc } from "@nochess/core/game/events.ts";
+import { parseTc, speedOf } from "@nochess/core/game/events.ts";
 import { Icon } from "@nochess/ui/components/icon";
+import { Popover, PopoverContent, PopoverTrigger } from "@nochess/ui/components/popover";
 import { cn } from "cn";
 import * as nip19 from "nostr-tools/nip19";
 import { type FormEvent, type ReactNode, useState } from "react";
@@ -400,32 +401,58 @@ function Times({ model }: { model: LobbyModel }) {
   );
 }
 
+const botStatus = ({ online, free, max }: LobbyModel["bots"][number]["status"]) =>
+  !online ? "offline" : free ? `online, ${free} of ${max} free` : "online, every table busy";
+
 function Bots({ model }: { model: LobbyModel }) {
   return (
     <>
       <Times model={model} />
-      <List data-testid="bots" className="[&>li]:flex-wrap [&>li]:gap-y-1">
+      <List data-testid="bots" className="[&>li]:h-16">
         {model.bots.length ? (
           model.bots.map((bot) => (
             <li key={bot.pubkey} className={cn(!bot.status.free && "opacity-60")}>
-              <span className="flex min-w-0 basis-full items-center gap-2">
-                <PlayerLink pubkey={bot.pubkey} />
-                {bot.rating && (
-                  <span className="rating text-muted-foreground tabular-nums">
-                    <ShowRating rating={bot.rating} />
-                  </span>
-                )}
+              <span className="grid min-w-0 flex-1">
+                <span className="flex min-w-0 items-center gap-2">
+                  <PlayerLink pubkey={bot.pubkey} />
+                  {bot.rating && (
+                    <span className="rating text-muted-foreground tabular-nums">
+                      <ShowRating rating={bot.rating} />
+                    </span>
+                  )}
+                </span>
+                <small
+                  className="truncate text-[0.8rem] text-muted-foreground"
+                  data-testid="bot-status"
+                >
+                  {botStatus(bot.status)}
+                </small>
               </span>
-              <small
-                className="min-w-0 flex-1 text-[0.8rem] text-muted-foreground"
-                data-testid="bot-status"
-              >
-                {!bot.status.online
-                  ? "offline"
-                  : bot.status.free
-                    ? `online, ${bot.status.free} of ${bot.status.max} free`
-                    : "online, every table busy"}
-              </small>
+              <Popover>
+                <PopoverTrigger
+                  className="-mx-1.5 grid size-9 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-brand"
+                  aria-label={`Record of ${who(bot.pubkey).name || "this bot"}`}
+                  data-testid="bot-info"
+                >
+                  <Icon name="info" />
+                </PopoverTrigger>
+                <PopoverContent data-testid="bot-record">
+                  <p className="mb-1.5 font-semibold">
+                    <Player pubkey={bot.pubkey} />
+                  </p>
+                  <ul className="grid gap-1 text-muted-foreground">
+                    <li>{botStatus(bot.status)}</li>
+                    {bot.rating && (
+                      <li>
+                        rated <ShowRating rating={bot.rating} /> at {speedOf(model.tc)}
+                      </li>
+                    )}
+                    {bot.record.split(" · ").map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                </PopoverContent>
+              </Popover>
               <button
                 type="button"
                 className={cn(button, "h-8 shrink-0 text-[0.87rem]")}
@@ -446,12 +473,6 @@ function Bots({ model }: { model: LobbyModel }) {
               >
                 Challenge{bot.sats ? ` · ${plural(bot.sats, "sat")}` : ""}
               </button>
-              <small
-                className="basis-full text-[0.8rem] text-muted-foreground"
-                data-testid="bot-record"
-              >
-                {bot.record}
-              </small>
             </li>
           ))
         ) : (
