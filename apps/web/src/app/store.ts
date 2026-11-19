@@ -244,6 +244,7 @@ function recordOf(pubkey: string): Reliability {
 export const wallet = () =>
   DEV_WALLET && window.webln ? "the dev wallet (play money)" : walletName();
 export const nameOf = (pubkey: string) => who(pubkey).name || shortKey(pubkey);
+const profileName = (pubkey: string) => who(pubkey).name;
 
 /** My newest kind 0, from the relay or what this page already has. */
 export async function ownProfile(): Promise<GameEvent | undefined> {
@@ -734,7 +735,7 @@ function lobby(): Route {
     if (mine.some((seek) => seek.tc === pending?.tc)) pending = null;
     for (const { gameId } of mine)
       if (!own.has(gameId))
-        own.set(gameId, new Table(net, me, gameId, localStorage, () => paint()));
+        own.set(gameId, new Table(net, me, gameId, localStorage, () => paint(), profileName));
     for (const [gameId, table] of own) {
       if (mine.some((seek) => seek.gameId === gameId)) continue;
       table.close();
@@ -886,7 +887,7 @@ export type GameModel = {
   chat: { lines: ChatLine[]; error: string };
 };
 function game(host: string, gameId: string): Route {
-  const table = new Table(net, host, gameId, localStorage, () => paint());
+  const table = new Table(net, host, gameId, localStorage, () => paint(), profileName);
   let copied = false;
   let joining = false;
   let confirming = false;

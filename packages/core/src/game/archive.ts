@@ -74,9 +74,16 @@ function wrap(tokens: string[]): string[] {
 
 /**
  * A NIP-64 note of a finished game that proves itself: the PGN, plus what it takes to rebuild
- * every signed move (its time and signature) and the other events the result rests on.
+ * every signed move (its time and signature) and the other events the result rests on. `name`
+ * gives a player's profile name for `alt`, which falls back to the npub.
  */
-export function archive(game: Game, site: string, now: number): Template {
+export function archive(
+  game: Game,
+  site: string,
+  now: number,
+  name: (pubkey: string) => string = () => "",
+): Template {
+  const [white, black] = game.players!.map((key) => name(key) || nip19.npubEncode(key));
   const played = new Set(game.ids);
   const proof: Proof = {
     head: game.proof.slice(0, 2),
@@ -93,7 +100,7 @@ export function archive(game: Game, site: string, now: number): Template {
       ["p", game.players![1], "", "black"],
       ["t", TOPIC],
       ["result", game.result!],
-      ["alt", `Chess game, ${game.result} by ${game.termination}`],
+      ["alt", `Chess game: ${white} vs ${black}, ${game.result} by ${game.termination}`],
       ["proof", JSON.stringify(proof)],
     ],
   };
