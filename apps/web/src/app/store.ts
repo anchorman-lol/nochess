@@ -26,7 +26,7 @@ import {
 } from "@nochess/core/game/reliability.ts";
 import { type Game, type Seat } from "@nochess/core/game/replay.ts";
 import { openGame, Table } from "@nochess/core/game/table.ts";
-import { Net } from "@nochess/core/nostr/net.ts";
+import { Net, timed } from "@nochess/core/nostr/net.ts";
 import type { Filter } from "nostr-tools/filter";
 import { payUrl } from "@nochess/core/zap/lnurl.ts";
 import type { Zap } from "@nochess/core/zap/zap.ts";
@@ -1228,7 +1228,12 @@ function reveal(id: string, tries = 0) {
   else if (tries < 120) requestAnimationFrame(() => reveal(id, tries + 1));
 }
 
-export const status = () => ({ online: net.online, relay: net.url });
+/** `timed`: the relay advertises that it refuses moves stamped more than a few seconds off. */
+export const status = () => ({
+  online: net.online,
+  relay: net.url,
+  timed: timed(net.window, KIND.move),
+});
 
 /** The player's relays, and whether this tab follows a share link's instead. */
 export const relays = () => ({ list: savedRelays(), shared: sharedRelay() });

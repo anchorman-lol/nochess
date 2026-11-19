@@ -47,15 +47,15 @@ This clock is only as honest as `created_at`. On a relay that accepts any timest
 
 ### What the relay module must do
 
-Working name `kind_time_window`, for anchorman-relay. Not built yet; Nochess runs without it on the local relay.
+Working name `kind_time_window`, for anchorman-relay, being built in November 2026. Nochess runs without it on the local relay. It follows Sashité's [self-timed timing relay](https://github.com/sashite/nostr/blob/main/nips/self-timed-timing-relay.md) profile, so a client of either reads the other's relay the same way.
 
 1. Configuration: a list of kinds and a window in seconds. For Nochess: `{ "kinds": [1641, 1642], "window_secs": 2 }`.
 2. On EVENT with a listed kind: reject it when `abs(created_at - relay_now) > window_secs`, with `["OK", id, false, "invalid: created_at outside the window for this kind"]`. The relay's own clock is the reference.
-3. Leave every other kind alone. The global `created_at_lower_limit` stays 0, because NIP-59 gift wraps are backdated on purpose.
-4. Advertise it in the NIP-11 document, so a client or auditor can tell the rule is on before trusting a clock: for example `"limitation": { "created_at_window": { "kinds": [1641, 1642], "seconds": 2 } }`.
+3. Leave every other kind alone, because NIP-59 gift wraps are backdated on purpose.
+4. Advertise it in the NIP-11 document, so a client or auditor can tell the rule is on before trusting a clock, with Sashité's field names: `"limitation": { "created_at_lower_limit": 2, "created_at_upper_limit": 2, "created_at_window_kinds": [1641, 1642] }`. The limits are seconds into the past and the future of the relay's clock, and they describe the listed kinds only.
 5. Rate limit: kinds 1641 and 1642 need their own budget of at least 60 events a minute per key. The general limit of 30 a minute is enough for blitz and too low for bullet.
 
-What the client has to change when the module exists: `Table.send` signs once and resends the same event until the relay takes it. A resend older than the window will be refused, so on that rejection the client must sign the same move again with a fresh time. Same content, so it is not equivocation.
+What the client does (`packages/core/src/nostr/net.ts`): after connecting, `Net` reads the relay's NIP-11 document. `deliver()` signs a move or action once and sends that same event until the relay takes it, so a retry never becomes a second move. When a send fails and the event is now older than the advertised past limit on a listed kind, the relay refuses it for its time, so the client signs the same template again with the time now and sends that. Same content and ply, so it is not equivocation; if both copies reach the relay, `replay()` takes the earlier. As Sashité's profile asks, the client tells a refusal for time from others by the numbers, not by the reason text. A relay counts as checking clocks when its past limit is 5 seconds or less on kind 1641 (Sashité's threshold); the game page then says "Move times: checked by the relay", and otherwise "as the players signed them".
 
 What stays unsolved by this level: a third party reading the events elsewhere has to take the relay's word that the rule was on. Signed timekeeper receipts (the proposal's level 2) remove that.
 
