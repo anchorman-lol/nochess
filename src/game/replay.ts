@@ -15,8 +15,11 @@ import {
 export type Seat = 0 | 1;
 export type Result = "1-0" | "0-1" | "1/2-1/2" | "*";
 export type Game = {
-  /** `missing`: no game event, or one this client won't play (bullet, a join that doesn't fit). */
-  phase: "missing" | "open" | "playing" | "finished";
+  /**
+   * `missing`: no game event, or one this client won't play (bullet, a join that doesn't fit).
+   * `cancelled`: the host withdrew the seek, and nothing can join it any more.
+   */
+  phase: "missing" | "cancelled" | "open" | "playing" | "finished";
   host: string;
   gameId: string;
   addr: string;
@@ -98,6 +101,10 @@ export function replay(events: GameEvent[], host: string, gameId: string): Game 
   const clock = parseTc(terms.tc);
   if (!clock || !speedOf(terms.tc)) return game;
   Object.assign(game, terms);
+  if (tagValue(lobby, "status") === "cancelled") {
+    game.phase = "cancelled";
+    return game;
+  }
 
   const about = unique.filter((event) => tagValue(event, "a") === addr);
   const fits = (join: GameEvent) =>

@@ -68,8 +68,11 @@ function step(table: Table) {
       table.move({ from: best.slice(0, 2), to: best.slice(2, 4), promotion: best[4] });
     });
   }
-  if (game.phase === "finished" && tables.get(game.addr) === table) {
-    console.log(`${game.addr.slice(-8)} ${game.result} by ${game.termination}`);
+  const over = game.phase === "finished" || game.phase === "cancelled";
+  if (over && tables.get(game.addr) === table) {
+    console.log(
+      `${game.addr.slice(-8)} ${game.result ? `${game.result} by ${game.termination}` : "withdrawn"}`,
+    );
     tables.delete(game.addr);
     setTimeout(() => table.close(), 5000);
   }

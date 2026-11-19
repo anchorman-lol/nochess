@@ -60,6 +60,7 @@ export class Table {
   private onChange: () => void;
   private events = new Map<string, GameEvent>();
   private sent = new Set<string>();
+  private withdrawn = false;
   private stops: (() => void)[];
 
   constructor(net: Net, host: string, gameId: string, store: Store, onChange: () => void) {
@@ -132,8 +133,11 @@ export class Table {
     const session = this.session();
     const lobby = [...this.events.values()].findLast((event) => event.kind === KIND.game);
     const salt = this.store.getItem(saltKey(this.addr));
-    if (game.phase === "open" && game.host === this.me && session && salt && lobby && this.loaded) {
-      const at = Math.max(now, lobby.created_at + 1);
+    const hosting = game.phase === "open" && game.host === this.me && lobby;
+    const at = Math.max(now, (lobby?.created_at ?? 0) + 1);
+    if (hosting && this.withdrawn)
+      this.send("cancel", build.cancelled(game.gameId, game, at), this.net.signer);
+    else if (hosting && session && salt && this.loaded) {
       if (game.join)
         this.send(
           "playing",
@@ -184,6 +188,12 @@ export class Table {
       ),
       this.net.signer,
     );
+  }
+
+  /** Withdraws my seek while it is open. From here on this table admits nobody and renews nothing. */
+  cancel() {
+    this.withdrawn = true;
+    this.tick();
   }
 
   /** Plays a move given as SAN or as squares; false if it isn't mine to make or isn't legal. */

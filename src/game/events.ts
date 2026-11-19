@@ -15,6 +15,8 @@ export const KIND = {
 } as const;
 export const TOPIC = "luft";
 export const SEEK_TTL = 15 * 60;
+/** How long the relay keeps a withdrawn seek, so clients that had it open learn of it. */
+const CANCELLED_TTL = 60;
 export const ACTIONS = ["resign", "abort", "draw-offer", "draw-accept", "claim-time"] as const;
 
 export type Action = (typeof ACTIONS)[number];
@@ -93,6 +95,20 @@ export const build = {
       ["seed", seed],
       ["expiration", String(now + SEEK_TTL)],
       ...(challenged ? [["p", challenged]] : []),
+      ["-"],
+    ],
+  }),
+  /** Withdraws an open seek or challenge: it replaces the open event and soon expires itself. */
+  cancelled: (gameId: string, terms: Terms, now: number): Template => ({
+    kind: KIND.game,
+    created_at: now,
+    content: "",
+    tags: [
+      ["d", gameId],
+      ["t", TOPIC],
+      ["status", "cancelled"],
+      ...termTags(terms),
+      ["expiration", String(now + CANCELLED_TTL)],
       ["-"],
     ],
   }),

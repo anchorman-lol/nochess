@@ -114,3 +114,47 @@ test("a pawn reaching the last rank promotes to the piece the player picks", asy
   }
   await expect(white.getByTestId("promotion")).toHaveCount(0);
 });
+
+test("a seek is withdrawn from the waiting screen, its lobby row or its tile, and then nobody can join it", async ({
+  browser,
+}) => {
+  const [host, guest] = [await player(browser), await player(browser)];
+  const seen = (hash: string) => guest.locator(`a[href="${hash}"]`);
+  await host.goto("/");
+  await guest.goto("/");
+
+  await host.getByTestId("create").click();
+  await expect(host.getByTestId("waiting")).toBeVisible();
+  const first = new URL(host.url()).hash;
+  await expect(seen(first)).toBeVisible();
+  await host.getByTestId("cancel-seek").click();
+  await expect(host.getByTestId("seeks")).toBeVisible();
+  await expect(seen(first)).toHaveCount(0);
+  await guest.goto(`/${first}`);
+  await expect(guest.getByTestId("cancelled")).toHaveText("This seek was withdrawn.");
+  await expect(guest.getByTestId("join")).toHaveCount(0);
+  await guest.getByTestId("home").click();
+
+  const tile = host.locator('[data-tc="600+0"]');
+  const mine = host.getByTestId("my-seeks").locator("li");
+  await tile.click();
+  await expect(host.getByTestId("seeking")).toContainText("Seeking… Cancel");
+  await expect(mine).toContainText("Your seek, waiting…");
+  const second = (await mine.locator("a").getAttribute("href"))!;
+  await expect(seen(second)).toBeVisible();
+  await host.getByTestId("seeking").click();
+  await expect(mine).toHaveCount(0);
+  await expect(seen(second)).toHaveCount(0);
+
+  await tile.click();
+  const third = (await mine.locator("a").getAttribute("href"))!;
+  await mine.getByTestId("cancel-seek").click();
+  await expect(mine).toHaveCount(0);
+  await expect(seen(third)).toHaveCount(0);
+
+  // A seek that stays is admitted from the lobby, and its host follows it into the game.
+  await tile.click();
+  await seen((await mine.locator("a").getAttribute("href"))!).click();
+  await guest.getByTestId("join").click();
+  for (const page of [host, guest]) await expect(page.getByTestId("table")).toBeVisible();
+});

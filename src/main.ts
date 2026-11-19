@@ -4,6 +4,7 @@ import { Engine, LEVELS, workerPipe } from "./engine/uci.ts";
 import { audit, type Verdict } from "./game/archive.ts";
 import {
   address,
+  build,
   covers,
   type GameEvent,
   KIND,
@@ -326,13 +327,33 @@ function home(): Route {
   let rated = localStorage.getItem("luft:rated") !== "0";
   let level = Number(localStorage.getItem("luft:level") ?? 3);
   let error = "";
+  /** My open seeks, each with a table that admits a guest and renews it while the lobby is open. */
+  const own = new Map<string, Table>();
+  let pending: { tc: string; cancel: boolean } | null = null;
 
   const stop = net.subscribe([{ kinds: [KIND.game], "#t": [TOPIC], limit: 300 }], (event) => {
     const key = address(event.pubkey, tagValue(event, "d") ?? "");
     if ((lobbies.get(key)?.created_at ?? -1) < event.created_at) lobbies.set(key, event);
-    paint();
+    tend();
   });
-  const refresh = setInterval(paint, 20_000);
+  const refresh = setInterval(tend, 20_000);
+
+  /** Keeps a table for each of my open seeks, and follows one into its game when it starts. */
+  function tend() {
+    const mine = games().seeks.filter((seek) => seek.mine);
+    if (mine.some((seek) => seek.tc === pending?.tc)) pending = null;
+    for (const { gameId } of mine)
+      if (!own.has(gameId))
+        own.set(gameId, new Table(net, me, gameId, localStorage, () => paint()));
+    for (const [gameId, table] of own) {
+      if (mine.some((seek) => seek.gameId === gameId)) continue;
+      table.close();
+      own.delete(gameId);
+      if (tagValue(lobbies.get(address(me, gameId))!, "status") === "playing")
+        location.hash = `#/${me}/${gameId}`;
+    }
+    paint();
+  }
 
   function games() {
     const now = nowSec();
@@ -389,6 +410,7 @@ function home(): Route {
         who,
         rate,
         ...games(),
+        pending: pending && !pending.cancel ? pending.tc : null,
         results: results.filter((verdict) => verdict.result !== "*").slice(0, 30),
         checking,
         doubted,
@@ -423,7 +445,22 @@ function home(): Route {
           (seek) => seek.tc === tc && seek.rated === rated && !seek.mine && !seek.forMe,
         );
         if (waiting) location.hash = `#/${waiting.host}/${waiting.gameId}`;
-        else start();
+        else {
+          const seek = (pending = { tc, cancel: false });
+          openGame(net, localStorage, { tc, rated }).then(
+            (gameId) =>
+              seek.cancel &&
+              net.publish(build.cancelled(gameId, { tc: seek.tc, rated }, nowSec() + 1)),
+            (reason) => {
+              pending = null;
+              error = `The relay didn't take the seek: ${reason instanceof Error ? reason.message : reason}`;
+              paint();
+            },
+          );
+        }
+      } else if (action === "cancel-seek") {
+        own.get(target.dataset.game!)?.cancel();
+        if (pending && !target.dataset.game) pending.cancel = true;
       } else if (action === "create") start();
       else if (action === "challenge-bot") start(target.dataset.pubkey);
     },
@@ -466,6 +503,7 @@ function home(): Route {
     leave() {
       stop();
       clearInterval(refresh);
+      for (const table of own.values()) table.close();
     },
   };
 }
@@ -560,7 +598,10 @@ function game(host: string, gameId: string): Route {
           addr: table.addr,
           fee: who(service).fee!.msat / 1000,
         });
-      else if (action === "join") {
+      else if (action === "cancel-seek") {
+        table.cancel();
+        location.hash = "#/";
+      } else if (action === "join") {
         joining = true;
         table.join();
       } else if (action === "copy") {

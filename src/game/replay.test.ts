@@ -175,3 +175,12 @@ test("threefold repetition is a draw", () => {
   const game = run(play(started(), [...shuffle, ...shuffle]));
   expect(game).toMatchObject({ result: "1/2-1/2", termination: "threefold repetition" });
 });
+
+test("a withdrawn seek is over: it takes no join, before or after", () => {
+  const [open, join] = seek();
+  const cancelled = sign(HOST, build.cancelled(GAME, BLITZ, 96));
+  expect(run([open, join, cancelled])).toMatchObject({ phase: "cancelled", join: null });
+  const late = sign(GUEST, build.join(ADDR, HOST, BLITZ, KEYS[1], hashHex("salt"), 97));
+  expect(run([open, cancelled, late])).toMatchObject({ phase: "cancelled", join: null });
+  expect(Number(cancelled.tags.find((tag) => tag[0] === "expiration")![1])).toBeGreaterThan(96);
+});

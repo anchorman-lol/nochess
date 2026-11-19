@@ -31,7 +31,7 @@ The tools read `LUFT_RELAY` (default `ws://127.0.0.1:7778`) and keep their keys 
 
 ## What is in it
 
-- Seeks and direct challenges, blitz, rapid, classical and correspondence. No bullet.
+- Seeks and direct challenges, blitz, rapid, classical and correspondence. No bullet. A seek can be withdrawn, and a quick-pairing tile seeks from the lobby.
 - Clocks from event timestamps, resign, draw by agreement, abort, automatic time claims.
 - Spectating by link.
 - A signed archive of every finished game and a results list that shows only games whose every signature verifies.

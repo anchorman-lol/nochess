@@ -61,6 +61,8 @@ export type Seek = {
   rated: boolean;
   mine: boolean;
   forMe: boolean;
+  /** The one player a challenge is for. */
+  guest?: string;
 };
 export type HomeModel = {
   me: string;
@@ -72,6 +74,8 @@ export type HomeModel = {
   doubted: number;
   ranks: { pubkey: string; speed: Speed; rating: Rating }[];
   /** `sats` is a bot's price a game, `plays` whether it takes the terms picked. */
+  /** The time control of a quick seek on its way to the relay. */
+  pending: string | null;
   bots: { pubkey: string; rating?: Rating; sats: number; plays: boolean }[];
   who: Who;
   rate: Rate;
@@ -276,6 +280,9 @@ export function homeView(model: HomeModel): string {
         ? [plural(clock.days, "day"), "Correspondence"]
         : [`${clock.base / 60}+${clock.inc}`, speedOf(tc)!];
     const waiting = model.seeks.filter((s) => s.tc === tc && !s.mine && !s.forMe).length;
+    const mine = model.seeks.find((s) => s.tc === tc && s.mine && !s.guest);
+    if (mine || model.pending === tc)
+      return `<button class="tile current" data-action="cancel-seek" data-game="${mine?.gameId ?? ""}" data-testid="seeking"><span class="time">${time}</span><span class="speed">Seeking… <u>Cancel</u></span></button>`;
     return `<button class="tile${tc === model.tc ? " current" : ""}" data-action="quick" data-tc="${tc}"><span class="time">${time}</span><span class="speed">${speed}</span>${
       waiting ? `<span class="waiting">${plural(waiting, "player")} waiting</span>` : ""
     }</button>`;
@@ -293,7 +300,19 @@ export function homeView(model: HomeModel): string {
       <div class="tiles">${TIME_CONTROLS.map(tile).join("")}</div>
       <p class="hint">A tile joins a player already waiting for that game, or opens a seek for others to find.</p>
       <h2>Open seeks</h2>
-      <ul class="list seeks" data-testid="seeks">${model.seeks.map(seekRow).join("") || none("Nobody is waiting. Pick a tile to open a seek.")}</ul>
+      <ul class="list" data-testid="my-seeks">${model.seeks
+        .filter((seek) => seek.mine)
+        .map(
+          (seek) =>
+            `<li><a href="${href(seek)}"><span class="who">Your ${seek.guest ? `challenge to ${player(seek.guest, who)}` : "seek"}, waiting…</span><span class="terms">${terms(seek.tc, seek.rated)}</span></a><button data-action="cancel-seek" data-game="${seek.gameId}" data-testid="cancel-seek">Cancel</button></li>`,
+        )
+        .join("")}</ul>
+      <ul class="list seeks" data-testid="seeks">${
+        model.seeks
+          .filter((seek) => !seek.mine)
+          .map(seekRow)
+          .join("") || none("Nobody is waiting. Pick a tile to open a seek.")
+      }</ul>
     </section>
     <aside class="actions">
       <details class="action" open>
@@ -434,7 +453,7 @@ function lobbyCard(model: GameModel): string {
       game.challenged ? player(game.challenged, who) : "an opponent"
     }</h2><p class="terms">${terms(game.tc, game.rated)}. Colours are drawn when the game starts.</p>${fee && `<div class="fee">${fee}</div>`}${share}<p class="hint">Anyone with the link can join${
       game.challenged ? " if they hold the challenged key" : ""
-    }. The seek also shows in the lobby.</p></section>`;
+    }. The seek also shows in the lobby.</p><button data-action="cancel-seek" data-testid="cancel-seek">Cancel</button></section>`;
   const allowed = !game.challenged || game.challenged === me;
   return `<section class="panel"><h2>${player(game.host, who)}${ratingOf(model.rate, game.host, game.tc)} wants to play</h2><p class="terms">${terms(game.tc, game.rated)}. Colours are drawn when the game starts.</p>${
     allowed
@@ -461,6 +480,8 @@ export function gameView(model: GameModel): string {
   if (!model.loaded) return '<p class="note">Looking for the game…</p>';
   if (game.phase === "missing")
     return '<p class="note" data-testid="missing">There is no such game on this relay.</p>';
+  if (game.phase === "cancelled")
+    return '<p class="note" data-testid="cancelled">This seek was withdrawn.</p>';
   if (game.phase === "open") return lobbyCard(model);
   const over = game.phase === "finished";
   const turn = turnOf(game);
