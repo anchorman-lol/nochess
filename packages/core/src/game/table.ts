@@ -66,12 +66,22 @@ export class Table {
   private net: Net;
   private store: Store;
   private onChange: () => void;
+  private name: (pubkey: string) => string;
   private events = new Map<string, GameEvent>();
   private sent = new Set<string>();
   private withdrawn = false;
   private stops: (() => void)[];
 
-  constructor(net: Net, host: string, gameId: string, store: Store, onChange: () => void) {
+  /** `name` gives a player's profile name for the archive's `alt`. */
+  constructor(
+    net: Net,
+    host: string,
+    gameId: string,
+    store: Store,
+    onChange: () => void,
+    name: (pubkey: string) => string = () => "",
+  ) {
+    this.name = name;
     this.net = net;
     this.store = store;
     this.onChange = onChange;
@@ -171,7 +181,7 @@ export class Table {
         else if (game.startBy !== null) this.act("abort");
       const mine = this.archives.some((note) => note.pubkey === this.me);
       if (game.phase === "finished" && this.loaded && !mine)
-        this.send("archive", archive(game, this.net.url, now), this.net.signer);
+        this.send("archive", archive(game, this.net.url, now, this.name), this.net.signer);
     }
     this.onChange();
   }

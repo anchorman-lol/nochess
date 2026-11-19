@@ -2,7 +2,16 @@ import { Chess } from "chess.js";
 import { finalizeEvent, generateSecretKey, getPublicKey } from "nostr-tools/pure";
 import { expect, test } from "vitest";
 import { archive, audit, auditAll, pgnTermination, prove } from "./archive.ts";
-import { type Action, address, build, type GameEvent, hashHex, type Template } from "./events.ts";
+import * as nip19 from "nostr-tools/nip19";
+import {
+  type Action,
+  address,
+  build,
+  type GameEvent,
+  hashHex,
+  tagValue,
+  type Template,
+} from "./events.ts";
 import { ratings, rate, START } from "./glicko.ts";
 import { replay } from "./replay.ts";
 import { labelFor, type Reviewed, summarise } from "./review.ts";
@@ -84,6 +93,16 @@ test("an archive with a changed move or result proves nothing", () => {
   expect(audit([forged])).toBeNull();
   const unfinished = { ...note, content: note.content.replace(" Qh4#", "") };
   expect(audit([unfinished])).toBeNull();
+});
+
+test("alt names the players for clients that don't read kind 64", () => {
+  const game = signedGame("g1", MATE);
+  const names = new Map([[game.players![0], "Ada"]]);
+  const alt = tagValue(
+    archive(game, "ws://relay", 600, (key) => names.get(key) ?? ""),
+    "alt",
+  );
+  expect(alt).toBe(`Chess game: Ada vs ${nip19.npubEncode(game.players![1])}, 0-1 by checkmate`);
 });
 
 test("a resignation is proven by the resigner's signed action", () => {
