@@ -1,5 +1,6 @@
+import { schnorr } from "@noble/curves/secp256k1.js";
 import { sha256 } from "@noble/hashes/sha2.js";
-import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
+import { bytesToHex, hexToBytes, utf8ToBytes } from "@noble/hashes/utils.js";
 
 export const KIND = {
   profile: 0,
@@ -81,6 +82,40 @@ export function firstMoveWindow(tc: string): number {
   const clock = parseTc(tc);
   if (clock && "days" in clock) return clock.days * 86_400;
   return speed === "blitz" ? 25 : speed === "rapid" ? 30 : 35;
+}
+
+const sessionHash = (addr: string, owner: string) =>
+  sha256(utf8ToBytes(`nochess/v1/session\n${addr}\n${owner}`));
+
+/**
+ * Adds the session key's signature over the game and its player to the template's `session` tag,
+ * so nobody else can name that key as theirs.
+ */
+export const bindSession = (
+  template: Template,
+  secret: Uint8Array,
+  addr: string,
+  owner: string,
+): Template => ({
+  ...template,
+  tags: template.tags.map((tag) =>
+    tag[0] === "session"
+      ? [...tag.slice(0, 2), bytesToHex(schnorr.sign(sessionHash(addr, owner), secret))]
+      : tag,
+  ),
+});
+
+/** The session key an event names, or null if its proof doesn't hold; one without a proof is older and counts. */
+export function sessionOf(event: Pick<GameEvent, "tags" | "pubkey">, addr: string): string | null {
+  const [, key, sig] = event.tags.find((tag) => tag[0] === "session") ?? [];
+  if (!key || sig === undefined) return key ?? null;
+  try {
+    return schnorr.verify(hexToBytes(sig), sessionHash(addr, event.pubkey), hexToBytes(key))
+      ? key
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 /** White is decided by a salt the host committed to before it saw the join. */

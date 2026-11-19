@@ -6,6 +6,7 @@ import { archive } from "./archive.ts";
 import {
   type Action,
   address,
+  bindSession,
   build,
   type GameEvent,
   hashHex,
@@ -42,7 +43,20 @@ export async function openGame(
   store.setItem(sessionKey(addr), bytesToHex(secret));
   store.setItem(saltKey(addr), salt);
   await net.publish(
-    build.open(gameId, terms, keySigner(secret).pubkey, hashHex(salt), nowSec(), challenged, wait),
+    bindSession(
+      build.open(
+        gameId,
+        terms,
+        keySigner(secret).pubkey,
+        hashHex(salt),
+        nowSec(),
+        challenged,
+        wait,
+      ),
+      secret,
+      addr,
+      net.signer.pubkey,
+    ),
   );
   return gameId;
 }
@@ -109,6 +123,12 @@ export class Table {
     return secret ? keySigner(hexToBytes(secret)) : null;
   }
 
+  /** The template with my session key's proof that it plays for me at this table. */
+  private bound(template: Template) {
+    const secret = this.store.getItem(sessionKey(this.addr));
+    return secret ? bindSession(template, hexToBytes(secret), this.addr, this.me) : template;
+  }
+
   /** My seat, if this device holds the session key the game names for me. */
   seat(): Seat | null {
     const seat = seatOf(this.game, this.me);
@@ -159,7 +179,9 @@ export class Table {
     else if (hosting && session && salt && this.loaded && game.join)
       this.send(
         "playing",
-        build.playing(game.gameId, game, session.pubkey, salt, game.join, at, lobby.created_at),
+        this.bound(
+          build.playing(game.gameId, game, session.pubkey, salt, game.join, at, lobby.created_at),
+        ),
         this.net.signer,
       );
     const seat = this.seat();
@@ -184,14 +206,16 @@ export class Table {
     this.store.setItem(sessionKey(this.addr), bytesToHex(secret));
     this.send(
       "join",
-      build.join(
-        this.addr,
-        this.game.host,
-        termsOf(lobby),
-        keySigner(secret).pubkey,
-        tagValue(lobby, "seed") ?? "",
-        nowSec(),
-        paidBy,
+      this.bound(
+        build.join(
+          this.addr,
+          this.game.host,
+          termsOf(lobby),
+          keySigner(secret).pubkey,
+          tagValue(lobby, "seed") ?? "",
+          nowSec(),
+          paidBy,
+        ),
       ),
       this.net.signer,
     );
