@@ -6,7 +6,8 @@ const FILES = "abcdefgh";
 const PROMOTIONS = ["q", "n", "r", "b"];
 const NAMES: Record<string, string> = { q: "queen", n: "knight", r: "rook", b: "bishop" };
 
-export const pieceUrl = (code: string) => `/pieces/${settings.pieces}/${code}.svg`;
+export const pieceUrl = (code: string, set = settings.pieces) =>
+  `${import.meta.env.BASE_URL}pieces/${set}/${code}.svg`;
 
 type Square = { name: string; piece: string; dark: boolean };
 function squaresOf(fen: string, flipped: boolean): Square[] {

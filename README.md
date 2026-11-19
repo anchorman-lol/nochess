@@ -2,7 +2,7 @@
 
 Chess between Nostr keys. Two people play a clocked game by publishing signed events to a relay; anyone can watch, and every finished game becomes a NIP-64 note that proves itself. There is no game server.
 
-Local only for now: nothing is deployed or published.
+It is served at https://anchorman-lol.github.io/nochess/, playing on wss://relay.anchorman.lol.
 
 ## Run it
 
@@ -60,6 +60,10 @@ The mock provider and the play-money wallet exist only where `VITE_DEV_WALLET` i
 3. Give each service a lightning address at a provider that supports NIP-57 zaps (its LNURL endpoint says `allowsNostr`): `LUFT_BOT_LUD16` with `LUFT_BOT_PRICE`, `LUFT_REVIEW_LUD16` with `LUFT_REVIEW_PRICE`.
 4. Use a relay the providers can reach, since they publish the receipts to it, and don't start `tools/zapmock.ts`.
 
+## Deploy
+
+`pnpm deploy:pages` builds the app for production, ignoring any `VITE_` variables in the shell, and force-pushes it to the `gh-pages` branch of `origin`, which GitHub Pages serves. The build runs locally, not in Actions. Asset paths are relative and routes are hash-based, so the same build works under any path.
+
 How it works, the event kinds, and what the relay still has to enforce: [docs/DESIGN.md](docs/DESIGN.md).
 
 ## Layout
@@ -92,4 +96,4 @@ Sounds and music are synthesised in the browser with Web Audio (`apps/web/src/li
 
 ## Licences
 
-Chess rules come from chess.js (BSD). Stockfish is GPL-3 and is loaded as a separate program, in a worker or a child process. In `apps/web/public/`: the Chessnut pieces (`pieces/chessnut/`) are Alexis Luengas's, Apache 2.0 (`pieces/chessnut/LICENSE.txt`); the Celtic pieces (`pieces/celtic/`) are Maurizio Monge's from [maurimo/chess-art](https://github.com/maurimo/chess-art), MIT (`pieces/celtic/LICENSE`), recoloured; Atkinson Hyperlegible Next and Mono (`fonts/`) are under the SIL Open Font License (`fonts/OFL-*.txt`). The sounds are generated in code, so they carry no licence of their own.
+Chess rules come from chess.js (BSD). Stockfish is GPL-3 and is loaded as a separate program, in a worker or a child process. The browser build is the unmodified `stockfish-19-lite-single` from the [stockfish](https://www.npmjs.com/package/stockfish) npm package 19.0.1, whose source is at [nmrugg/stockfish.js](https://github.com/nmrugg/stockfish.js) and [official-stockfish/Stockfish](https://github.com/official-stockfish/Stockfish); its licence is served next to it as `engine/COPYING.txt`. In `apps/web/public/`: the Chessnut pieces (`pieces/chessnut/`) are Alexis Luengas's, Apache 2.0 (`pieces/chessnut/LICENSE.txt`); the Celtic pieces (`pieces/celtic/`) are Maurizio Monge's from [maurimo/chess-art](https://github.com/maurimo/chess-art), MIT (`pieces/celtic/LICENSE`), recoloured; Atkinson Hyperlegible Next and Mono (`fonts/`) are under the SIL Open Font License (`fonts/OFL-*.txt`). The sounds are generated in code, so they carry no licence of their own.

@@ -12,6 +12,7 @@
     "rate": "node tools/rater.ts",
     "zapmock": "node tools/zapmock.ts",
     "build": "pnpm -r typecheck && tsc && pnpm --filter @luft/web build",
+    "deploy:pages": "scripts/pages.sh",
     "typecheck": "pnpm -r typecheck && tsc",
     "test": "vitest run",
     "test:e2e": "playwright test",

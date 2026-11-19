@@ -3,7 +3,7 @@ import { Switch } from "@luft/ui/components/switch";
 import { cn } from "cn";
 import type { ReactNode } from "react";
 import { setSettings, settings, sound } from "../app/store.ts";
-import { Board } from "../components/board.tsx";
+import { Board, pieceUrl } from "../components/board.tsx";
 import { Hint, Player } from "../components/common.tsx";
 import { btn } from "../components/table.tsx";
 import { BOARDS, mute, PIECES, type Settings, THEMES } from "../lib/settings.ts";
@@ -108,7 +108,7 @@ export function SettingsPage() {
                   <img
                     key={code}
                     alt=""
-                    src={`/pieces/${name}/${code}.svg`}
+                    src={pieceUrl(code, name)}
                     className="aspect-square w-full max-w-12"
                   />
                 ))}
