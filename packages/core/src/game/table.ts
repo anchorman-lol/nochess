@@ -223,7 +223,12 @@ export class Table {
       const ply = game.sans.length + 1;
       const at = Math.max(nowSec(), game.times.at(-1) ?? game.startedAt);
       const prev = game.ids.at(-1) ?? game.join!.id;
-      this.send(`move:${ply}`, build.move(this.addr, ply, prev, made.san, made.after, at), session);
+      const opponent = game.players![1 - turnOf(game)];
+      this.send(
+        `move:${ply}`,
+        build.move(this.addr, ply, prev, made.san, made.after, at, opponent),
+        session,
+      );
       return true;
     } catch {
       return false;
