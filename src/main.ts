@@ -15,7 +15,7 @@ import {
   TOPIC,
 } from "./game/events.ts";
 import { ratings } from "./game/glicko.ts";
-import { type Seat, turnOf } from "./game/replay.ts";
+import type { Seat } from "./game/replay.ts";
 import { openGame, Table } from "./game/table.ts";
 import {
   followRelayHint,
@@ -27,26 +27,38 @@ import {
   relayUrl,
 } from "./nostr/browser.ts";
 import { Net } from "./nostr/net.ts";
+import { isPromotion, position, targets } from "./ui/board.ts";
 import {
   type Board,
   computerOutcome,
   computerView,
   gameView,
   homeView,
+  type Moves,
   type Seek,
   shell,
 } from "./ui/render.ts";
 
+/** What the board needs from a game: its moves, my side, and a way to play. */
+type Play = {
+  sans(): string[];
+  seat(): Seat | null;
+  open(): boolean;
+  move(from: string, to: string, promotion?: string): boolean;
+};
 type Route = {
   view(): string;
   act(action: string, target: HTMLElement): void;
   change?(target: HTMLInputElement | HTMLSelectElement): void;
   submit?(form: string, value: string): void;
   leave(): void;
+  play?: Play;
 };
+type Drag = { from: string; x: number; y: number; ghost: HTMLElement | null; was: boolean };
 
 const LIVE_FOR = 6 * 60 * 60;
 const app = document.querySelector<HTMLElement>("#app")!;
+const root = document.documentElement;
 const nowSec = () => Math.floor(Date.now() / 1000);
 
 const signer = await loadSigner();
@@ -57,111 +69,260 @@ const who = (pubkey: string): Profile => {
   const event = profiles.get(pubkey);
   return event ? profileOf(event) : { name: "", bot: false };
 };
+const isBot = (pubkey: string) => who(pubkey).bot;
 net.subscribe([{ kinds: [KIND.profile], "#t": [TOPIC] }], (event) => {
   if ((profiles.get(event.pubkey)?.created_at ?? -1) < event.created_at)
     profiles.set(event.pubkey, event);
   paint();
 });
+
+/** Every archived game, audited one at a time so a long list never freezes the page. */
+const notes = new Map<string, GameEvent>();
+const verdicts = new Map<string, Verdict | null>();
+let checking = true;
+let auditTimer: ReturnType<typeof setTimeout> | undefined;
+const archived = () => Map.groupBy(notes.values(), (note) => tagValue(note, "a") ?? "");
+async function check() {
+  for (const [addr, group] of archived()) {
+    const key = `${addr}|${group.length}`;
+    if (verdicts.has(key)) continue;
+    verdicts.set(key, audit(group));
+    paint();
+    await new Promise((resolve) => setTimeout(resolve));
+  }
+  checking = false;
+  paint();
+}
+const checkSoon = () => {
+  clearTimeout(auditTimer);
+  auditTimer = setTimeout(() => void check(), 200);
+};
+net.subscribe(
+  [{ kinds: [KIND.archive], "#t": [TOPIC], limit: 120 }],
+  (event) => {
+    notes.set(event.id, event);
+    checkSoon();
+  },
+  checkSoon,
+);
+function audited() {
+  const all = [...archived()].map(([addr, group]) => verdicts.get(`${addr}|${group.length}`));
+  const results = all.filter((verdict) => verdict != null).sort((a, b) => b.endedAt - a.endedAt);
+  return { results, doubted: all.filter((verdict) => verdict === null).length };
+}
+let rated: { key: string; table: ReturnType<typeof ratings> } | undefined;
+function ratingTable() {
+  const { results } = audited();
+  const key = `${results.length}|${profiles.size}`;
+  if (rated?.key !== key) rated = { key, table: ratings(results, isBot) };
+  return rated.table;
+}
+const rate = (pubkey: string, speed: Speed) => ratingTable().get(pubkey)?.[speed];
+
 let route: Route | undefined;
 let painted = "";
+/** Board state that outlives a repaint: the piece in hand, the move being looked at, a premove. */
+let view = fresh();
+function fresh() {
+  return {
+    ply: null as number | null,
+    flip: false,
+    selected: null as string | null,
+    premove: null as [string, string] | null,
+    promoting: null as [string, string] | null,
+    plies: 0,
+    drag: null as Drag | null,
+  };
+}
 
 function paint() {
   if (!route) return;
-  const html = shell(route.view(), { online: net.online, relay: net.url });
+  if (route.play) sync(route.play);
+  const html = shell(route.view(), {
+    online: net.online,
+    relay: net.url,
+    dark: root.dataset.theme === "dark",
+  });
   if (html === painted) return;
   painted = html;
   const active = document.activeElement;
   const typing = active instanceof HTMLInputElement && app.contains(active) ? active : null;
-  const unfolded = [...app.querySelectorAll("details[open]")].map((details) => details.className);
+  const unfolded = [...app.querySelectorAll("details")].map((d) => [d.className, d.open] as const);
   app.innerHTML = html;
-  for (const name of unfolded) app.querySelector(`details.${name}`)?.setAttribute("open", "");
+  for (const [name, open] of unfolded) {
+    const details =
+      name && app.querySelector<HTMLDetailsElement>(`details.${name.split(" ").join(".")}`);
+    if (details) details.open = open;
+  }
   const input = typing && app.querySelector<HTMLInputElement>(`input[name="${typing.name}"]`);
   if (input) {
     input.value = typing.value;
     input.focus();
   }
+  const list = app.querySelector<HTMLElement>(".moves");
+  const on = list?.querySelector<HTMLElement>(".on");
+  if (list && on)
+    list.scrollTo({
+      top: on.offsetTop - list.clientHeight / 2,
+      left: on.offsetLeft - list.clientWidth / 2,
+    });
   clocks();
 }
 
 function clocks() {
   for (const clock of app.querySelectorAll<HTMLElement>(".clock")) {
-    const left = clock.dataset.due
-      ? Math.max(0, Math.ceil((Number(clock.dataset.due) - Date.now()) / 1000))
-      : Number(clock.dataset.left);
+    const ms = clock.dataset.due
+      ? Math.max(0, Number(clock.dataset.due) - Date.now())
+      : Number(clock.dataset.left) * 1000;
+    const left = Math.ceil(ms / 1000);
     clock.textContent =
       left >= 86_400
         ? `${Math.floor(left / 86_400)} d ${Math.floor((left % 86_400) / 3600)} h`
         : left >= 3600
           ? `${Math.floor(left / 3600)} h ${Math.floor((left % 3600) / 60)} min`
-          : `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+          : clock.dataset.due && ms < 10_000
+            ? `0:0${(Math.floor(ms / 100) / 10).toFixed(1)}`
+            : `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
     clock.classList.toggle("low", left <= 10);
   }
 }
 
-/** Board state shared by a relay game and a game against the computer. */
-function boardOf(sans: string[], seat: Seat | null, selected: string | null): Board {
-  const chess = new Chess();
-  const moves = sans.map((san) => chess.move(san));
-  const last = moves.at(-1);
+const liveFen = (play: Play) => position(play.sans(), play.sans().length).fen;
+const myTurn = (play: Play) =>
+  play.open() && play.seat() !== null && play.sans().length % 2 === play.seat();
+
+/** After a move arrives: drop what no longer fits, and play a premove that is now legal. */
+function sync(play: Play) {
+  const plies = play.sans().length;
+  if (plies === view.plies) return;
+  view.plies = plies;
+  view.promoting = null;
+  const seat = play.seat();
+  if (view.selected && (seat === null || !targets(liveFen(play), view.selected, seat).length))
+    view.selected = null;
+  if (!play.open()) view.premove = null;
+  if (view.premove && myTurn(play)) {
+    const [from, to] = view.premove;
+    view.premove = null;
+    if (targets(liveFen(play), from, seat!).includes(to)) play.move(from, to, "q");
+  }
+}
+
+function boardOf(play: Play): Board & { moves: Moves } {
+  const sans = play.sans();
+  const ply = view.ply ?? sans.length;
+  const { fen, last, check } = position(sans, ply);
+  const seat = play.seat();
+  const live = ply === sans.length;
+  const selected = live && play.open() ? view.selected : null;
   return {
-    fen: chess.fen(),
-    flipped: seat === 1,
+    fen,
+    last,
+    check,
+    flipped: (seat === 1) !== view.flip,
     selected,
-    targets: selected
-      ? chess.moves({ square: selected as never, verbose: true }).map((move) => move.to)
-      : [],
-    last: last ? [last.from, last.to] : [],
+    targets: selected && seat !== null ? targets(fen, selected, seat) : [],
+    premove: live ? (view.premove ?? []) : [],
+    promotion:
+      live && view.promoting && seat !== null
+        ? { square: view.promoting[1], color: "wb"[seat] }
+        : null,
+    dragging: view.drag?.ghost ? view.drag.from : null,
+    moves: { sans, ply },
   };
 }
-const ownPiece = (fen: string, square: string, seat: Seat) =>
-  new Chess(fen).get(square as never)?.color === "wb"[seat];
+
+/** A move from the hand to `to`, or a premove when it isn't my turn yet. */
+function drop(play: Play, from: string, to: string): void {
+  const seat = play.seat()!;
+  const fen = liveFen(play);
+  view.selected = null;
+  if (!targets(fen, from, seat).includes(to)) return pick(play, to);
+  if (!myTurn(play)) view.premove = [from, to];
+  else if (isPromotion(fen, from, to)) view.promoting = [from, to];
+  else play.move(from, to);
+}
+
+/** A click on a square: pick up my piece, put it down, or let go. */
+function pick(play: Play, square: string): void {
+  const seat = play.seat();
+  if (seat === null || !play.open()) return;
+  if (view.ply !== null) {
+    view.ply = null;
+    return;
+  }
+  view.promoting = null;
+  const { selected } = view;
+  if (selected && selected !== square && targets(liveFen(play), selected, seat).includes(square))
+    return drop(play, selected, square);
+  view.premove = null;
+  view.selected =
+    selected !== square && targets(liveFen(play), square, seat).length ? square : null;
+}
+
+function navigateMoves(to: string, ply?: number) {
+  const sans = route?.play?.sans() ?? [];
+  const now = view.ply ?? sans.length;
+  const next =
+    to === "first"
+      ? 0
+      : to === "prev"
+        ? now - 1
+        : to === "next"
+          ? now + 1
+          : to === "ply"
+            ? ply!
+            : sans.length;
+  const clamped = Math.max(0, Math.min(sans.length, next));
+  view.ply = clamped === sans.length ? null : clamped;
+  view.selected = null;
+  view.promoting = null;
+}
 
 function home(): Route {
   const lobbies = new Map<string, GameEvent>();
-  const notes = new Map<string, GameEvent>();
-  const verdicts = new Map<string, Verdict | null>();
   let tc = localStorage.getItem("luft:tc") ?? "300+3";
   if (!speedOf(tc)) tc = "300+3";
   let rated = localStorage.getItem("luft:rated") !== "0";
   let level = Number(localStorage.getItem("luft:level") ?? 3);
   let error = "";
-  let gone = false;
-  let checking = true;
-  let timer: ReturnType<typeof setTimeout> | undefined;
 
-  /** Audits one game at a time, so a long list never freezes the page. */
-  async function check() {
-    const games = Map.groupBy(notes.values(), (note) => tagValue(note, "a") ?? "");
-    for (const [addr, group] of games) {
-      const key = `${addr}|${group.length}`;
-      if (verdicts.has(key) || gone) continue;
-      verdicts.set(key, audit(group));
-      paint();
-      await new Promise((resolve) => setTimeout(resolve));
-    }
-    checking = false;
+  const stop = net.subscribe([{ kinds: [KIND.game], "#t": [TOPIC], limit: 300 }], (event) => {
+    const key = address(event.pubkey, tagValue(event, "d") ?? "");
+    if ((lobbies.get(key)?.created_at ?? -1) < event.created_at) lobbies.set(key, event);
     paint();
-  }
-  const checkSoon = () => {
-    clearTimeout(timer);
-    timer = setTimeout(() => void check(), 200);
-  };
-  const stops = [
-    net.subscribe([{ kinds: [KIND.game], "#t": [TOPIC], limit: 300 }], (event) => {
-      const key = address(event.pubkey, tagValue(event, "d") ?? "");
-      if ((lobbies.get(key)?.created_at ?? -1) < event.created_at) lobbies.set(key, event);
-      paint();
-    }),
-    net.subscribe(
-      [{ kinds: [KIND.archive], "#t": [TOPIC], limit: 120 }],
-      (event) => {
-        notes.set(event.id, event);
-        checkSoon();
-      },
-      checkSoon,
-    ),
-  ];
+  });
   const refresh = setInterval(paint, 20_000);
+
+  function games() {
+    const now = nowSec();
+    const all = [...lobbies.values()].map((event): Seek & { event: GameEvent; guest: string } => ({
+      event,
+      host: event.pubkey,
+      gameId: tagValue(event, "d") ?? "",
+      ...termsOf(event),
+      guest: tagValue(event, "p") ?? "",
+      mine: event.pubkey === me,
+      forMe: tagValue(event, "p") === me,
+    }));
+    const status = (seek: (typeof all)[number]) => tagValue(seek.event, "status");
+    const finished = archived();
+    return {
+      seeks: all.filter(
+        (seek) =>
+          status(seek) === "open" &&
+          speedOf(seek.tc) &&
+          Number(tagValue(seek.event, "expiration")) > now &&
+          (!seek.guest || seek.forMe || seek.mine),
+      ),
+      live: all.filter(
+        (seek) =>
+          status(seek) === "playing" &&
+          !finished.has(address(seek.host, seek.gameId)) &&
+          (speedOf(seek.tc) === "correspondence" || seek.event.created_at > now - LIVE_FOR),
+      ),
+    };
+  }
 
   function start(challenged?: string) {
     openGame(net, localStorage, { tc, rated }, challenged).then(
@@ -172,49 +333,25 @@ function home(): Route {
       },
     );
   }
+  const save = () => {
+    localStorage.setItem("luft:tc", tc);
+    localStorage.setItem("luft:rated", rated ? "1" : "0");
+    localStorage.setItem("luft:level", String(level));
+  };
 
   return {
     view() {
-      const now = nowSec();
-      const games = Map.groupBy(notes.values(), (note) => tagValue(note, "a") ?? "");
-      const audited = [...games].map(([addr, group]) => verdicts.get(`${addr}|${group.length}`));
-      const results = audited
-        .filter((verdict) => verdict != null)
-        .sort((a, b) => b.endedAt - a.endedAt);
-      const isBot = (pubkey: string) => who(pubkey).bot;
-      const table = ratings(results, isBot);
-      const all = [...lobbies.values()].map(
-        (event): Seek & { event: GameEvent; guest: string } => ({
-          event,
-          host: event.pubkey,
-          gameId: tagValue(event, "d") ?? "",
-          ...termsOf(event),
-          guest: tagValue(event, "p") ?? "",
-          mine: event.pubkey === me,
-          forMe: tagValue(event, "p") === me,
-        }),
-      );
-      const status = (seek: (typeof all)[number]) => tagValue(seek.event, "status");
+      const { results, doubted } = audited();
+      const table = ratingTable();
       return homeView({
         me,
         source: signer.source,
         who,
-        seeks: all.filter(
-          (seek) =>
-            status(seek) === "open" &&
-            speedOf(seek.tc) &&
-            Number(tagValue(seek.event, "expiration")) > now &&
-            (!seek.guest || seek.forMe || seek.mine),
-        ),
-        live: all.filter(
-          (seek) =>
-            status(seek) === "playing" &&
-            !games.has(address(seek.host, seek.gameId)) &&
-            (speedOf(seek.tc) === "correspondence" || seek.event.created_at > now - LIVE_FOR),
-        ),
+        rate,
+        ...games(),
         results: results.filter((verdict) => verdict.result !== "*").slice(0, 30),
         checking,
-        doubted: audited.filter((verdict) => verdict === null).length,
+        doubted,
         ranks: [...table]
           .filter(([pubkey]) => !isBot(pubkey))
           .flatMap(([pubkey, speeds]) =>
@@ -235,16 +372,22 @@ function home(): Route {
       });
     },
     act(action, target) {
-      if (action === "create") start();
+      if (action === "quick") {
+        tc = target.dataset.tc!;
+        save();
+        const waiting = games().seeks.find(
+          (seek) => seek.tc === tc && seek.rated === rated && !seek.mine && !seek.forMe,
+        );
+        if (waiting) location.hash = `#/${waiting.host}/${waiting.gameId}`;
+        else start();
+      } else if (action === "create") start();
       else if (action === "challenge-bot") start(target.dataset.pubkey);
     },
     change(target) {
       if (target.name === "tc" && speedOf(target.value)) tc = target.value;
       else if (target.name === "rated") rated = (target as HTMLInputElement).checked;
       else if (target.name === "level") level = Number(target.value);
-      localStorage.setItem("luft:tc", tc);
-      localStorage.setItem("luft:rated", rated ? "1" : "0");
-      localStorage.setItem("luft:level", String(level));
+      save();
       paint();
     },
     submit(form, value) {
@@ -257,39 +400,44 @@ function home(): Route {
       paint();
     },
     leave() {
-      gone = true;
-      for (const stop of stops) stop();
+      stop();
       clearInterval(refresh);
-      clearTimeout(timer);
     },
   };
 }
 
 function game(host: string, gameId: string): Route {
-  const table = new Table(net, host, gameId, localStorage, () => {
-    if (table.game.sans.length !== plies) selected = null;
-    plies = table.game.sans.length;
-    paint();
-  });
-  let selected: string | null = null;
-  let plies = 0;
+  const table = new Table(net, host, gameId, localStorage, () => paint());
   let copied = false;
   let joining = false;
+  let confirming = false;
+  let unconfirm: ReturnType<typeof setTimeout> | undefined;
   const shareUrl = () => location.origin + location.pathname + gameLink(host, gameId, net.url);
+  const play: Play = {
+    sans: () => table.game.sans,
+    seat: () => table.seat(),
+    open: () => table.game.phase === "playing",
+    move: (from, to, promotion) => table.move({ from, to, promotion }),
+  };
 
   return {
+    play,
     view() {
       const players: string[] = table.game.players ?? [];
+      const { moves, ...board } = boardOf(play);
       return gameView({
         game: table.game,
         me,
         seat: table.seat(),
         loaded: table.loaded,
-        board: boardOf(table.game.sans, table.seat(), selected),
+        board,
+        moves,
         who,
+        rate,
         shareUrl: shareUrl(),
         copied,
         joining,
+        confirming: confirming && table.game.phase === "playing",
         signed: new Set(
           table.archives.map((note) => note.pubkey).filter((key) => players.includes(key)),
         ).size,
@@ -310,8 +458,9 @@ function game(host: string, gameId: string): Route {
         }),
       });
     },
-    act(action, target) {
-      const seat = table.seat();
+    act(action) {
+      clearTimeout(unconfirm);
+      confirming = false;
       if (action === "join") {
         joining = true;
         table.join();
@@ -322,14 +471,14 @@ function game(host: string, gameId: string): Route {
           copied = false;
           paint();
         }, 2500);
-      } else if (action === "square") {
-        const square = target.dataset.square!;
-        const { game: at } = table;
-        if (at.phase !== "playing" || seat === null || seat !== turnOf(at)) return;
-        if (selected && table.move({ from: selected, to: square, promotion: "q" })) selected = null;
-        else selected = ownPiece(at.fen, square, seat) && selected !== square ? square : null;
-      } else if (action === "resign" || action === "abort" || action.startsWith("draw-"))
-        table.act(action as "resign");
+      } else if (action === "resign") {
+        confirming = true;
+        unconfirm = setTimeout(() => {
+          confirming = false;
+          paint();
+        }, 5000);
+      } else if (action === "resign-confirm") table.act("resign");
+      else if (action === "abort" || action.startsWith("draw-")) table.act(action as "abort");
       paint();
     },
     leave: () => table.close(),
@@ -344,7 +493,6 @@ function computer(level: number): Route {
   );
   let chess = new Chess();
   let seat: Seat = 0;
-  let selected: string | null = null;
   let thinking = false;
 
   async function reply() {
@@ -361,36 +509,43 @@ function computer(level: number): Route {
   function restart(as: Seat) {
     chess = new Chess();
     seat = as;
-    selected = null;
+    view = fresh();
     void reply();
   }
+  const play: Play = {
+    sans: () => chess.history(),
+    seat: () => seat,
+    open: () => !chess.isGameOver(),
+    move(from, to, promotion) {
+      if (thinking) return false;
+      try {
+        chess.move({ from, to, promotion });
+      } catch {
+        return false;
+      }
+      void reply();
+      return true;
+    },
+  };
 
   return {
-    view: () =>
-      computerView({
-        board: boardOf(chess.history(), seat, selected),
+    play,
+    view() {
+      const { moves, ...board } = boardOf(play);
+      return computerView({
+        board,
+        moves,
         level,
         seat,
-        sans: chess.history(),
         outcome: chess.isGameOver()
           ? computerOutcome(chess.isCheckmate(), chess.turn() === "w" ? 1 : 0)
-          : "",
+          : null,
         thinking,
-      }),
-    act(action, target) {
+      });
+    },
+    act(action) {
       if (action === "again") restart(seat);
       else if (action === "swap") restart((1 - seat) as Seat);
-      else if (action === "square" && !thinking && !chess.isGameOver()) {
-        const square = target.dataset.square!;
-        try {
-          if (!selected) throw new Error("nothing selected");
-          chess.move({ from: selected, to: square, promotion: "q" });
-          selected = null;
-          void reply();
-        } catch {
-          selected = ownPiece(chess.fen(), square, seat) && selected !== square ? square : null;
-        }
-      }
       paint();
     },
     leave: () => engine.close(),
@@ -399,6 +554,7 @@ function computer(level: number): Route {
 
 function navigate() {
   route?.leave();
+  view = fresh();
   const level = Number(location.hash.match(/^#\/computer\/([1-8])$/)?.[1]);
   const { host, gameId, relay } = parseGameLink(location.hash);
   if (relay && /^wss?:\/\//.test(relay) && relay !== net.url) {
@@ -409,10 +565,129 @@ function navigate() {
   paint();
 }
 
+/** Board-level actions any route with a board shares; true if handled. */
+function boardAction(action: string, target: HTMLElement): boolean {
+  const play = route?.play;
+  if (action === "theme") {
+    root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
+    localStorage.setItem("luft:theme", root.dataset.theme);
+  } else if (!play) return false;
+  else if (action === "flip") view.flip = !view.flip;
+  else if (action === "nav") navigateMoves(target.dataset.to!);
+  else if (action === "ply") navigateMoves("ply", Number(target.dataset.ply));
+  else if (action === "promote" && view.promoting) {
+    const [from, to] = view.promoting;
+    view.promoting = null;
+    play.move(from, to, target.dataset.piece);
+  } else if (action === "promote-cancel") view.promoting = null;
+  else return false;
+  paint();
+  return true;
+}
+
 app.addEventListener("click", (event) => {
-  const target = (event.target as HTMLElement).closest<HTMLElement>("[data-action]");
-  if (target && !(target as HTMLButtonElement).disabled) route?.act(target.dataset.action!, target);
+  const element = event.target as HTMLElement;
+  const square = element.closest<HTMLElement>(".sq");
+  // Mouse and touch go through the pointer handlers; a click without a pointer is the keyboard.
+  if (square && !element.closest(".promotion")) {
+    if (event.detail === 0 && route?.play) {
+      pick(route.play, square.dataset.square!);
+      paint();
+    }
+    return;
+  }
+  const target = element.closest<HTMLElement>("[data-action]");
+  if (!target || (target as HTMLButtonElement).disabled) return;
+  if (target.dataset.action === "promote-cancel" && target !== element) return;
+  if (!boardAction(target.dataset.action!, target)) route?.act(target.dataset.action!, target);
 });
+
+app.addEventListener("pointerdown", (event) => {
+  const square = (event.target as HTMLElement).closest<HTMLElement>(".sq");
+  const play = route?.play;
+  if (!square || !play || event.button !== 0 || (event.target as HTMLElement).closest(".promotion"))
+    return;
+  event.preventDefault();
+  const name = square.dataset.square!;
+  const seat = play.seat();
+  const mine =
+    seat !== null && view.ply === null && play.open() && targets(liveFen(play), name, seat).length;
+  const into = view.selected && targets(liveFen(play), view.selected, seat ?? 0).includes(name);
+  if (mine && !into) {
+    view.drag = {
+      from: name,
+      x: event.clientX,
+      y: event.clientY,
+      ghost: null,
+      was: view.selected === name,
+    };
+    view.selected = name;
+    view.premove = null;
+    view.promoting = null;
+  } else pick(play, name);
+  paint();
+});
+
+window.addEventListener("pointermove", (event) => {
+  const drag = view.drag;
+  if (!drag) return;
+  if (!drag.ghost) {
+    if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < 4) return;
+    const from = app.querySelector<HTMLElement>(`[data-square="${drag.from}"]`);
+    const piece = from?.querySelector<HTMLElement>(".piece");
+    if (!from || !piece) return void (view.drag = null);
+    drag.ghost = Object.assign(document.createElement("i"), {
+      className: `${piece.className} ghost`,
+    });
+    drag.ghost.style.width = drag.ghost.style.height = `${from.offsetWidth}px`;
+    document.body.append(drag.ghost);
+    paint();
+  }
+  drag.ghost.style.translate = `${event.clientX - drag.ghost.offsetWidth / 2}px ${event.clientY - drag.ghost.offsetHeight / 2}px`;
+  const over = document.elementFromPoint(event.clientX, event.clientY)?.closest(".sq");
+  for (const square of app.querySelectorAll(".sq.over"))
+    if (square !== over) square.classList.remove("over");
+  over?.classList.add("over");
+});
+
+window.addEventListener("pointerup", (event) => {
+  const drag = view.drag;
+  const play = route?.play;
+  if (!drag || !play) return;
+  view.drag = null;
+  drag.ghost?.remove();
+  const over = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>(".sq")
+    ?.dataset.square;
+  if (drag.ghost && over && over !== drag.from) drop(play, drag.from, over);
+  else if (!drag.ghost && drag.was) view.selected = null;
+  paint();
+});
+window.addEventListener("pointercancel", () => {
+  view.drag?.ghost?.remove();
+  view.drag = null;
+  paint();
+});
+
+window.addEventListener("keydown", (event) => {
+  if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return;
+  if (event.metaKey || event.ctrlKey || event.altKey || !route?.play) return;
+  const to = {
+    ArrowLeft: "prev",
+    ArrowRight: "next",
+    ArrowUp: "first",
+    Home: "first",
+    ArrowDown: "last",
+    End: "last",
+  }[event.key];
+  if (to) navigateMoves(to);
+  else if (event.key === "f") view.flip = !view.flip;
+  else if (event.key === "Escape")
+    Object.assign(view, { selected: null, premove: null, promoting: null });
+  else return;
+  event.preventDefault();
+  paint();
+});
+
 app.addEventListener("change", (event) => {
   const { target } = event;
   if (target instanceof HTMLSelectElement || target instanceof HTMLInputElement)
@@ -425,5 +700,5 @@ app.addEventListener("submit", (event) => {
   route?.submit?.(form.dataset.form ?? "", String(value ?? "").trim());
 });
 window.addEventListener("hashchange", navigate);
-setInterval(clocks, 250);
+setInterval(clocks, 100);
 navigate();

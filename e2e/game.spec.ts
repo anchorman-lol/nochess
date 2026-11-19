@@ -24,7 +24,7 @@ test("two players play a rated game to checkmate, watched, archived and audited"
   await move(white, "g2", "g4", [black, watcher]);
   await move(black, "d8", "h4", [white, watcher]);
   for (const page of [...both, watcher]) {
-    await expect(page.getByTestId("outcome")).toHaveText("0-1 · Black wins by checkmate");
+    await expect(page.getByTestId("outcome")).toHaveText("0-1 Black wins by checkmate");
     await expect(page.getByTestId("signed")).toContainText("both players");
     await expect(page.getByTestId("moves")).toContainText("Qh4#");
   }
@@ -46,7 +46,7 @@ test("a draw is offered and accepted, and a casual game leaves no rating", async
   await white.getByTestId("draw-offer").click();
   await black.getByTestId("draw-accept").click();
   for (const page of [white, black])
-    await expect(page.getByTestId("outcome")).toHaveText("1/2-1/2 · Draw by agreement");
+    await expect(page.getByTestId("outcome")).toHaveText("½-½ Draw by agreement");
   await expect(white.getByTestId("signed")).toContainText("both players");
   await white.getByTestId("home").click();
   await expect(white.getByTestId("results").locator("li", { hasText: "(you)" })).toContainText(
@@ -69,7 +69,7 @@ test("the player whose clock runs out loses on time", async ({ browser }) => {
   await move(white, "e2", "e4", [black]);
   await move(black, "e7", "e5", [white]);
   for (const page of [white, black])
-    await expect(page.getByTestId("outcome")).toHaveText("0-1 · Black wins by time", {
+    await expect(page.getByTestId("outcome")).toHaveText("0-1 Black wins by time", {
       timeout: 15_000,
     });
 });
@@ -78,6 +78,39 @@ test("the computer in the browser answers a move", async ({ page }) => {
   await page.goto("/#/computer/1");
   await page.getByTestId("sq-e2").click();
   await page.getByTestId("sq-e4").click();
-  await expect(page.locator(".moves li span").nth(1)).not.toBeEmpty();
+  await expect(page.getByTestId("moves").locator('[data-ply="2"]')).toBeVisible();
   await expect(page.getByTestId("status")).toHaveText("Your move.");
+});
+
+test("a piece is dragged to its square, and a drag to an illegal square changes nothing", async ({
+  page,
+}) => {
+  await page.goto("/#/computer/1");
+  const board = page.getByTestId("board");
+  const start = await board.getAttribute("data-fen");
+  await page.getByTestId("sq-g1").dragTo(page.getByTestId("sq-g4"));
+  await expect(board).toHaveAttribute("data-fen", start!);
+  await page.getByTestId("sq-g1").dragTo(page.getByTestId("sq-f3"));
+  await expect(page.getByTestId("moves").locator('[data-ply="1"]')).toHaveText("Nf3");
+  await expect(page.getByTestId("moves").locator('[data-ply="2"]')).toBeVisible();
+});
+
+test("a pawn reaching the last rank promotes to the piece the player picks", async ({
+  browser,
+}) => {
+  const [white, black] = await sitDown(await player(browser), await player(browser), false);
+  const line = ["h2h4", "g7g5", "h4g5", "g8f6", "g5f6", "a7a6", "f6e7", "a6a5"];
+  for (const [i, m] of line.entries()) {
+    const [mover, other] = i % 2 ? [black, white] : [white, black];
+    await move(mover, m.slice(0, 2), m.slice(2), [other]);
+  }
+  await white.getByTestId("sq-e7").click();
+  await white.getByTestId("sq-d8").click();
+  await expect(white.getByTestId("promotion")).toBeVisible();
+  await white.getByTestId("promote-n").click();
+  for (const page of [white, black]) {
+    await expect(page.getByTestId("moves")).toContainText("exd8=N");
+    await expect(page.getByTestId("sq-d8")).toHaveAttribute("aria-label", "d8 white n");
+  }
+  await expect(white.getByTestId("promotion")).toHaveCount(0);
 });

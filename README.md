@@ -45,4 +45,16 @@ How it works, the event kinds, and what the relay still has to enforce: [docs/DE
 - `tools/` the bot account, reviewer and rater
 - `e2e/` Playwright tests
 
-Chess rules come from chess.js (BSD). Stockfish is GPL-3 and is loaded as a separate program, in a worker or a child process.
+## Playing
+
+Drag a piece or click it and then its square; dots show where it can go. Moving while the opponent is to move sets a premove, played as soon as it is legal. A pawn reaching the last rank asks which piece it becomes. The arrow keys step through the moves (up and down jump to the start and end), `f` flips the board and Escape lets go of a piece. The moon and sun in the header switch between the dark and light themes.
+
+| Lobby                   | Game, light                  | Game, dark                  |
+| ----------------------- | ---------------------------- | --------------------------- |
+| ![Lobby](docs/home.png) | ![Game](docs/game-light.png) | ![Game](docs/game-dark.png) |
+
+On a phone: [light](docs/game-mobile-light.png), [dark](docs/game-mobile-dark.png), [lobby](docs/home-mobile.png). A finished game: [docs/game-over.png](docs/game-over.png). Waiting for an opponent: [docs/waiting.png](docs/waiting.png). The lobby in the dark: [docs/home-dark.png](docs/home-dark.png).
+
+## Licences
+
+Chess rules come from chess.js (BSD). Stockfish is GPL-3 and is loaded as a separate program, in a worker or a child process. The pieces in `public/pieces/` are Maurizio Monge's Celtic set from [maurimo/chess-art](https://github.com/maurimo/chess-art), MIT (`public/pieces/LICENSE`), recoloured for Luft.

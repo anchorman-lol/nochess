@@ -37,9 +37,10 @@ test("a player challenges the bot account and plays a rated game to the end", as
     const fen = (await page.getByTestId("board").getAttribute("data-fen"))!;
     const legal = new Chess(fen).moves({ verbose: true });
     pick = (pick * 31 + 11) % 1009;
-    const { from, to } = legal[pick % legal.length];
+    const { from, to, promotion } = legal[pick % legal.length];
     await page.getByTestId(`sq-${from}`).click();
     await page.getByTestId(`sq-${to}`).click();
+    if (promotion) await page.getByTestId(`promote-${promotion}`).click();
     await expect(page.getByTestId("board")).not.toHaveAttribute("data-fen", fen);
   }
 
