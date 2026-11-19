@@ -21,11 +21,11 @@ test("landing, lobby, game, settings, zaps, a paid bot and an invoice render wit
   const paybot = await service(
     ["tools/bot.ts"],
     {
-      LUFT_BOT_ID: "paybot",
-      LUFT_PAYBOT_KEY: "3".repeat(64),
-      LUFT_BOT_NAME: "Paybot",
-      LUFT_BOT_PRICE: "21",
-      LUFT_BOT_LUD16: `paybot@${ZAP_HOST}`,
+      NOCHESS_BOT_ID: "paybot",
+      NOCHESS_PAYBOT_KEY: "3".repeat(64),
+      NOCHESS_BOT_NAME: "Paybot",
+      NOCHESS_BOT_PRICE: "21",
+      NOCHESS_BOT_LUD16: `paybot@${ZAP_HOST}`,
     },
     "ready",
   );
@@ -104,7 +104,7 @@ test("landing, lobby, game, settings, zaps, a paid bot and an invoice render wit
   await expect(watcher.locator('[data-testid="zap-line"][data-state="paid"]')).toHaveCount(3);
   await shoot("zap", "[data-testid=zap-close]", undefined, watcher);
 
-  const payer = watch(await player(browser, undefined, { "luft:devwallet": "off" }));
+  const payer = watch(await player(browser, undefined, { "nochess:devwallet": "off" }));
   await payer.goto(`/#/player/${hostKey}`);
   await payer.getByTestId("zap").click();
   await zap(payer, 21, 0, ["21 sats"]);

@@ -15,16 +15,16 @@ import {
   ZAPMOCK_KEY,
 } from "./play.ts";
 
-const NO_WALLET = { "luft:devwallet": "off" };
+const NO_WALLET = { "nochess:devwallet": "off" };
 let reviewer: ChildProcess;
 
 test.beforeAll(async () => {
   reviewer = await service(
     ["tools/reviewer.ts", "--serve"],
     {
-      LUFT_REVIEWER_KEY: "4".repeat(64),
-      LUFT_REVIEW_LUD16: `reviewer@${ZAP_HOST}`,
-      LUFT_REVIEW_PAID_DEPTH: "6",
+      NOCHESS_REVIEWER_KEY: "4".repeat(64),
+      NOCHESS_REVIEW_LUD16: `reviewer@${ZAP_HOST}`,
+      NOCHESS_REVIEW_PAID_DEPTH: "6",
     },
     "serving",
   );

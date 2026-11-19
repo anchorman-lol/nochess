@@ -5,7 +5,7 @@ import * as nip44 from "nostr-tools/nip44";
 import { finalizeEvent, type NostrEvent } from "nostr-tools/pure";
 import { Relay } from "nostr-tools/relay";
 
-const NWC_STORE = "luft:nwc";
+const NWC_STORE = "nochess:nwc";
 const NWC = { info: 13194, request: 23194, response: 23195 };
 
 declare global {

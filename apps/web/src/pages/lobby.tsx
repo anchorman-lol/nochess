@@ -1,5 +1,5 @@
-import { parseTc } from "@luft/core/game/events.ts";
-import { Icon } from "@luft/ui/components/icon";
+import { parseTc } from "@nochess/core/game/events.ts";
+import { Icon } from "@nochess/ui/components/icon";
 import { cn } from "cn";
 import * as nip19 from "nostr-tools/nip19";
 import { type FormEvent, type ReactNode, useState } from "react";

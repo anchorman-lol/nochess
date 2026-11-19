@@ -74,7 +74,7 @@ importers:
 
   .:
     dependencies:
-      '@luft/core':
+      '@nochess/core':
         specifier: workspace:*
         version: link:packages/core
       '@noble/hashes':
@@ -90,7 +90,7 @@ importers:
         specifier: 19.0.1
         version: 19.0.1
     devDependencies:
-      '@luft/tsconfig':
+      '@nochess/tsconfig':
         specifier: workspace:*
         version: link:tooling/typescript
       '@playwright/test':
@@ -114,10 +114,10 @@ importers:
 
   apps/web:
     dependencies:
-      '@luft/core':
+      '@nochess/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@luft/ui':
+      '@nochess/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       '@noble/hashes':
@@ -145,7 +145,7 @@ importers:
         specifier: 0.1.3
         version: 0.1.3
     devDependencies:
-      '@luft/tsconfig':
+      '@nochess/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
       '@tailwindcss/vite':
@@ -194,7 +194,7 @@ importers:
         specifier: 'catalog:'
         version: 2.26.1(typescript@7.0.2)
     devDependencies:
-      '@luft/tsconfig':
+      '@nochess/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
       '@types/node':
@@ -231,7 +231,7 @@ importers:
         specifier: 'catalog:'
         version: 1.4.0
     devDependencies:
-      '@luft/tsconfig':
+      '@nochess/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
       '@types/react':

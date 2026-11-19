@@ -1,4 +1,4 @@
-import { Icon } from "@luft/ui/components/icon";
+import { Icon } from "@nochess/ui/components/icon";
 import { cn } from "cn";
 import * as nip19 from "nostr-tools/nip19";
 import {

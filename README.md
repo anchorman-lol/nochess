@@ -18,17 +18,17 @@ Open the app in two browsers (or one normal and one private window) to play your
 | Command               | What it does                                                                                                                                                                                                |
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `pnpm dev`            | Relay, mock Lightning provider, a free and a paid bot, the paid reviewer and the Vite dev server                                                                                                            |
-| `pnpm bot`            | A bot account alone. `LUFT_BOT_SKILL` (0 to 20), `LUFT_BOT_MS` per move, `LUFT_BOT_NAME`; to charge, `LUFT_BOT_PRICE` in sats and `LUFT_BOT_LUD16`                                                          |
+| `pnpm bot`            | A bot account alone. `NOCHESS_BOT_SKILL` (0 to 20), `NOCHESS_BOT_MS` per move, `NOCHESS_BOT_NAME`; to charge, `NOCHESS_BOT_PRICE` in sats and `NOCHESS_BOT_LUD16`                                           |
 | `pnpm review`         | The automated fair-play reviewer: analyses finished games and publishes NIP-32 labels. `--dry` prints only, `--include-bots` reviews declared bots too                                                      |
-| `pnpm review --serve` | The same reviewer on request: reviews a game once a zap of `LUFT_REVIEW_PRICE` sats (default 50) to `LUFT_REVIEW_LUD16` names it                                                                            |
-| `pnpm zapmock`        | The mock Lightning provider alone, on `LUFT_ZAP_PORT` (default 7779)                                                                                                                                        |
+| `pnpm review --serve` | The same reviewer on request: reviews a game once a zap of `NOCHESS_REVIEW_PRICE` sats (default 50) to `NOCHESS_REVIEW_LUD16` names it                                                                      |
+| `pnpm zapmock`        | The mock Lightning provider alone, on `NOCHESS_ZAP_PORT` (default 7779)                                                                                                                                     |
 | `pnpm rate`           | The reference Glicko-2 rater: publishes one checkable assertion per player. `--dry` prints only, `--watch` keeps rating, `--pubkey` prints its key                                                          |
 | `pnpm test`           | Unit tests: replay, clock, archive audit, ratings, reviewer statistics, zap receipts, splits and fee gating, settings, sounds and chat rules                                                                |
 | `pnpm test:e2e`       | Playwright: two browsers play a full game and chat, one plays the bot accounts to the end, players are zapped, a bot and a reviewer are paid                                                                |
 | `pnpm shots`          | Screenshots of the landing page, lobby, game, settings, the profile editor, the relay list, a zap, a paid bot and an invoice at 1440 and 390 px, light and dark, into `SHOTS_DIR`; fails on a console error |
 | `pnpm check`          | Lint, format check, typecheck, unit tests and e2e                                                                                                                                                           |
 
-The tools read `LUFT_RELAY` (default `ws://127.0.0.1:7778`) and keep their keys in `.keys/`. A second bot needs a key of its own: `LUFT_BOT_ID=name` keeps it in `.keys/name.hex`. `LUFT_BOT_SPEEDS` (`blitz,rapid`) and `LUFT_BOT_MODES` (`rated,casual`) limit what a bot plays. A bot keeps the keys of its games in `.keys/<id>-sessions.json`, so after a restart it carries on with the games it sits in; it takes at most `LUFT_BOT_TABLES` (default 15) games and challenges at once, since relays cap subscriptions per connection, and declines the rest.
+The tools read `NOCHESS_RELAY` (default `ws://127.0.0.1:7778`) and keep their keys in `.keys/`. A second bot needs a key of its own: `NOCHESS_BOT_ID=name` keeps it in `.keys/name.hex`. `NOCHESS_BOT_SPEEDS` (`blitz,rapid`) and `NOCHESS_BOT_MODES` (`rated,casual`) limit what a bot plays. A bot keeps the keys of its games in `.keys/<id>-sessions.json`, so after a restart it carries on with the games it sits in; it takes at most `NOCHESS_BOT_TABLES` (default 15) games and challenges at once, since relays cap subscriptions per connection, and declines the rest.
 
 ## What is in it
 
@@ -59,7 +59,7 @@ The mock provider and the play-money wallet exist only where `VITE_DEV_WALLET` i
 
 1. Build or serve the app without `VITE_DEV_WALLET`. Payers then use their own WebLN wallet or Nostr Wallet Connect link, or scan the invoice.
 2. For a share, set `VITE_PLATFORM_LUD16` to the platform's lightning address and `VITE_PLATFORM_PUBKEY` to the hex key the share is zapped to, and optionally `VITE_PLATFORM_SHARE` (percent, default 15). Leave them unset for no share. The Pages build reads them from `apps/web/.env.production`.
-3. Give each service a lightning address at a provider that supports NIP-57 zaps (its LNURL endpoint says `allowsNostr`): `LUFT_BOT_LUD16` with `LUFT_BOT_PRICE`, `LUFT_REVIEW_LUD16` with `LUFT_REVIEW_PRICE`.
+3. Give each service a lightning address at a provider that supports NIP-57 zaps (its LNURL endpoint says `allowsNostr`): `NOCHESS_BOT_LUD16` with `NOCHESS_BOT_PRICE`, `NOCHESS_REVIEW_LUD16` with `NOCHESS_REVIEW_PRICE`.
 4. Use a relay the providers can reach, since they publish the receipts to it, and don't start `tools/zapmock.ts`.
 
 ## Deploy
@@ -74,7 +74,7 @@ A pnpm workspace.
 
 - `apps/web/` the web client: React and Vite. `src/app/store.ts` holds the routes and their state, `src/pages/` and `src/components/` render them, `src/lib/` has settings, sounds and board helpers, `src/chat/` the chat rules.
 - `packages/core/` everything that isn't UI, shared by the client and the tools: `game/` the rules as pure functions (`replay`, `archive`, `glicko`, `review`) and `Table`, one game from a participant's side; `nostr/` the relay connection; `zap/` receipt validation, splits, fee gating and the LNURL client; `engine/` a UCI wrapper for Stockfish.
-- `packages/ui/` shadcn/ui components (base-ui), the Tailwind CSS v4 theme with the brand's OKLCH tokens, the logo, and `brand.ts`, the one place the product's name lives. Protocol identifiers (the `luft` topic tag, `luft:` storage keys, `LUFT_` env vars, the `@luft/` scope) are not brand and stay.
+- `packages/ui/` shadcn/ui components (base-ui), the Tailwind CSS v4 theme with the brand's OKLCH tokens, the logo, and `brand.ts`, the one place the product's name lives. Protocol identifiers (the `nochess` topic tag, `nochess:` storage keys, `NOCHESS_` env vars, the `@nochess/` scope) don't follow it: changing them splits the app from its events and stored keys.
 - `tools/` the bot account, reviewer, rater and the mock Lightning provider
 - `e2e/` Playwright tests, and `shots.ts` for the screenshots
 

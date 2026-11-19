@@ -1,10 +1,10 @@
 /**
  * Development only, loaded when VITE_DEV_WALLET names the mock provider: a WebLN wallet of play
  * money that "pays" an invoice by telling the mock it was paid. The app sees an ordinary WebLN
- * provider. `luft:devwallet` = `off` in localStorage leaves the browser without a wallet.
+ * provider. `nochess:devwallet` = `off` in localStorage leaves the browser without a wallet.
  */
 export function install(mock: string) {
-  if (localStorage.getItem("luft:devwallet") === "off") return;
+  if (localStorage.getItem("nochess:devwallet") === "off") return;
   window.webln ??= {
     enable: async () => {},
     async sendPayment(invoice) {

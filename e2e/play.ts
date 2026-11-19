@@ -14,7 +14,7 @@ export const PLATFORM = "193e245d172bfe0b717e47c6008bfb8611d47356c89779b86daafe8
 /** Starts a bot or reviewer against the test relay and waits until it says `ready`. */
 export async function service(args: string[], env: Record<string, string>, ready: string) {
   const child: ChildProcess = spawn("node", args, {
-    env: { ...process.env, LUFT_RELAY: RELAY, ...env },
+    env: { ...process.env, NOCHESS_RELAY: RELAY, ...env },
     stdio: ["ignore", "pipe", "inherit"],
   });
   await new Promise<void>((resolve, reject) => {
@@ -35,7 +35,7 @@ export async function player(
     (items) => {
       for (const [key, value] of Object.entries(items)) localStorage.setItem(key, value);
     },
-    { ...(tc && { "luft:tc": tc }), ...store },
+    { ...(tc && { "nochess:tc": tc }), ...store },
   );
   return context.newPage();
 }

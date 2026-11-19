@@ -3,7 +3,7 @@
 // Without flags it is the free pass over every finished game on the relay. `--dry` prints without
 // publishing, `--include-bots` also reviews keys that declare themselves bots.
 // `--serve` stays up and sells the same review on request, deeper and at once: it reviews a game
-// when a valid zap receipt of at least LUFT_REVIEW_PRICE (sats) names it, and its labels name
+// when a valid zap receipt of at least NOCHESS_REVIEW_PRICE (sats) names it, and its labels name
 // that receipt.
 import { Chess } from "chess.js";
 import { Engine, ENGINE } from "../packages/core/src/engine/uci.ts";
@@ -14,10 +14,10 @@ import { owed } from "../packages/core/src/zap/fee.ts";
 import { readZap, type Zap } from "../packages/core/src/zap/zap.ts";
 import { connect, enginePipe, finishedGames, nowSec, RELAY, servicePoint, short } from "./node.ts";
 
-const NAMESPACE = "luft/fairplay";
-const DEPTH = Number(process.env.LUFT_REVIEW_DEPTH ?? 10);
-const PAID_DEPTH = Number(process.env.LUFT_REVIEW_PAID_DEPTH ?? 14);
-const PRICE = Number(process.env.LUFT_REVIEW_PRICE ?? 50) * 1000;
+const NAMESPACE = "nochess/fairplay";
+const DEPTH = Number(process.env.NOCHESS_REVIEW_DEPTH ?? 10);
+const PAID_DEPTH = Number(process.env.NOCHESS_REVIEW_PAID_DEPTH ?? 14);
+const PRICE = Number(process.env.NOCHESS_REVIEW_PRICE ?? 50) * 1000;
 const KEEP_OPEN = 86_400;
 const dry = process.argv.includes("--dry");
 
@@ -90,17 +90,17 @@ async function review(
 console.log(`reviewer ${me}\n${ENGINE}\n`);
 console.log("game      player    positions  match  acpl   label");
 if (process.argv.includes("--serve")) {
-  const lud16 = process.env.LUFT_REVIEW_LUD16 ?? "";
+  const lud16 = process.env.NOCHESS_REVIEW_LUD16 ?? "";
   const point = await servicePoint(lud16);
   await net.publish({
     kind: KIND.profile,
     created_at: nowSec(),
     tags: [["t", TOPIC]],
     content: JSON.stringify({
-      name: process.env.LUFT_REVIEW_NAME ?? "Nochess reviewer",
+      name: process.env.NOCHESS_REVIEW_NAME ?? "Nochess reviewer",
       about: `Fair-play review on request: ${ENGINE}, depth ${PAID_DEPTH}.`,
       lud16,
-      luft: { role: "review", price_msat: PRICE },
+      nochess: { role: "review", price_msat: PRICE },
     }),
   });
   const zaps = new Map<string, Zap>();

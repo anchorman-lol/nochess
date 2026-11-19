@@ -1,7 +1,7 @@
-import type { Verdict } from "@luft/core/game/archive.ts";
-import { type Speed, speedOf } from "@luft/core/game/events.ts";
-import type { Rating } from "@luft/core/game/glicko.ts";
-import { Icon } from "@luft/ui/components/icon";
+import type { Verdict } from "@nochess/core/game/archive.ts";
+import { type Speed, speedOf } from "@nochess/core/game/events.ts";
+import type { Rating } from "@nochess/core/game/glicko.ts";
+import { Icon } from "@nochess/ui/components/icon";
 import { useEffect, useRef } from "react";
 import { FIRST_PAGE, type Seek } from "../app/store.ts";
 import { gameHref, plural, seekHref, tcLabel, terms } from "../lib/format.ts";

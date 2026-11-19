@@ -14,7 +14,7 @@ import { keySigner, Net } from "../packages/core/src/nostr/net.ts";
 import { fakeInvoice } from "../packages/core/src/zap/bolt11.ts";
 import { nowSec, RELAY, secretOf } from "./node.ts";
 
-const PORT = Number(process.env.LUFT_ZAP_PORT ?? 7779);
+const PORT = Number(process.env.NOCHESS_ZAP_PORT ?? 7779);
 const BASE = `http://127.0.0.1:${PORT}`;
 const secret = secretOf("zapmock");
 const net = new Net(RELAY, keySigner(secret));

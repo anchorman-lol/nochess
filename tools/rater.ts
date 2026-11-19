@@ -2,7 +2,7 @@
 // addressable assertion per player (NIP-85's kind 30382 with chess tags) that names the games it
 // covers, so anyone can rerun it. Each assertion also carries the player's reliability: for a bot
 // how it answered its challenges, for everyone how many games it abandoned. `--dry` prints only, `--watch` rates again every
-// LUFT_RATE_EVERY seconds (default 30), `--pubkey` prints the rater's key for clients to trust.
+// NOCHESS_RATE_EVERY seconds (default 30), `--pubkey` prints the rater's key for clients to trust.
 import { getPublicKey } from "nostr-tools/pure";
 import { assertion, coverOf } from "../packages/core/src/game/assertion.ts";
 import { KIND, TOPIC } from "../packages/core/src/game/events.ts";
@@ -67,6 +67,6 @@ await run();
 if (watch)
   setInterval(
     () => void run().catch(console.error),
-    Number(process.env.LUFT_RATE_EVERY ?? 30) * 1000,
+    Number(process.env.NOCHESS_RATE_EVERY ?? 30) * 1000,
   );
 else net.close();

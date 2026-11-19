@@ -21,7 +21,7 @@ export type Settings = {
 };
 type Store = Pick<Storage, "getItem" | "setItem">;
 
-const KEY = "luft:settings";
+const KEY = "nochess:settings";
 export const DEFAULTS: Settings = {
   theme: "system",
   board: "altitude",
@@ -50,7 +50,7 @@ export function loadSettings(store: Store): Settings {
     // an unreadable value is replaced by the defaults
   }
   return {
-    theme: oneOf(THEMES, raw.theme ?? store.getItem("luft:theme"), DEFAULTS.theme),
+    theme: oneOf(THEMES, raw.theme ?? store.getItem("nochess:theme"), DEFAULTS.theme),
     board: oneOf(BOARDS, raw.board, DEFAULTS.board),
     pieces: oneOf(PIECES, raw.pieces, DEFAULTS.pieces),
     sound: flag(raw.sound, DEFAULTS.sound),

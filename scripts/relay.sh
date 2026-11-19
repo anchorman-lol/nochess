@@ -5,7 +5,7 @@
 set -eu
 config=${1:-relay.dev.json}
 root=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
-bin=${LUFT_RELAY_BIN:-$root/.relay-bin/relay}
+bin=${NOCHESS_RELAY_BIN:-$root/.relay-bin/relay}
 if [ ! -x "$bin" ]; then
   src=${ANCHORMAN_RELAY:-$HOME/work/anchorman-relay}
   target=$root/.relay-target

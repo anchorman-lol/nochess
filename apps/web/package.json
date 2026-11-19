@@ -1,5 +1,5 @@
 {
-  "name": "@luft/web",
+  "name": "@nochess/web",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -9,9 +9,9 @@
     "typecheck": "tsc"
   },
   "dependencies": {
-    "@luft/core": "workspace:*",
-    "@luft/ui": "workspace:*",
     "@noble/hashes": "catalog:",
+    "@nochess/core": "workspace:*",
+    "@nochess/ui": "workspace:*",
     "chess.js": "catalog:",
     "cn": "0.5.2",
     "motion": "catalog:",
@@ -21,7 +21,7 @@
     "uqr": "0.1.3"
   },
   "devDependencies": {
-    "@luft/tsconfig": "workspace:*",
+    "@nochess/tsconfig": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",

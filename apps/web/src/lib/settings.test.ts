@@ -40,7 +40,7 @@ describe("settings", () => {
 
   it("keep what is valid from a stored value and default the rest", () => {
     const store = memory({
-      "luft:settings": JSON.stringify({
+      "nochess:settings": JSON.stringify({
         board: "plaid",
         pieces: "celtic",
         volume: 7,
@@ -53,7 +53,7 @@ describe("settings", () => {
   it("cap what a bot without a record may charge, at whole sats of zero or more", () => {
     expect(DEFAULTS.newBotCap).toBe(100);
     const stored = (newBotCap: unknown) =>
-      loadSettings(memory({ "luft:settings": JSON.stringify({ newBotCap }) })).newBotCap;
+      loadSettings(memory({ "nochess:settings": JSON.stringify({ newBotCap }) })).newBotCap;
     expect(stored(500)).toBe(500);
     expect(stored(0)).toBe(0);
     expect(stored(12.7)).toBe(12);
@@ -62,11 +62,11 @@ describe("settings", () => {
   });
 
   it("fall back to the defaults when the stored value isn't JSON", () => {
-    expect(loadSettings(memory({ "luft:settings": "{oops" }))).toEqual(DEFAULTS);
+    expect(loadSettings(memory({ "nochess:settings": "{oops" }))).toEqual(DEFAULTS);
   });
 
   it("take the theme the app stored before settings existed", () => {
-    expect(loadSettings(memory({ "luft:theme": "dark" })).theme).toBe("dark");
+    expect(loadSettings(memory({ "nochess:theme": "dark" })).theme).toBe("dark");
   });
 
   it("mute and unmute a key without duplicates, and drop keys that aren't hex", () => {
@@ -74,7 +74,7 @@ describe("settings", () => {
     const once = mute(DEFAULTS, key, true);
     expect(mute(once, key, true).muted).toEqual([key]);
     expect(mute(once, key, false).muted).toEqual([]);
-    const store = memory({ "luft:settings": JSON.stringify({ muted: [key, "nope", key] }) });
+    const store = memory({ "nochess:settings": JSON.stringify({ muted: [key, "nope", key] }) });
     expect(loadSettings(store).muted).toEqual([key]);
   });
 

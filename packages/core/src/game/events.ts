@@ -15,7 +15,7 @@ export const KIND = {
   rating: 30382,
   status: 30315,
 } as const;
-export const TOPIC = "luft";
+export const TOPIC = "nochess";
 /**
  * How long an open game waits for its join, in seconds: a seek in the lobby, a challenge to a
  * player, and one to a bot, which gets longer when it charges so there is time to pay.
@@ -281,12 +281,13 @@ export type Fee = {
 export type Profile = { name: string; bot: boolean; lud16: string; lud06: string; fee: Fee | null };
 export const NOBODY: Profile = { name: "", bot: false, lud16: "", lud06: "", fee: null };
 
-/** Name, the NIP-24 bot flag, the lightning address and the `luft` fee block of a kind 0 event. */
+/** Name, the NIP-24 bot flag, the lightning address and the `nochess` fee block of a kind 0 event. */
 export function profileOf(event: Pick<GameEvent, "content">): Profile {
   try {
-    const { name, bot, lud16, lud06, luft } = JSON.parse(event.content);
+    const { name, bot, lud16, lud06, nochess } = JSON.parse(event.content);
     const text = (value: unknown) => (typeof value === "string" ? value.trim() : "");
-    const priced = (luft?.role === "bot" || luft?.role === "review") && luft.price_msat >= 0;
+    const priced =
+      (nochess?.role === "bot" || nochess?.role === "review") && nochess.price_msat >= 0;
     return {
       name: text(name).slice(0, 40),
       bot: bot === true,
@@ -294,11 +295,11 @@ export function profileOf(event: Pick<GameEvent, "content">): Profile {
       lud06: text(lud06),
       fee: priced
         ? {
-            role: luft.role,
-            msat: Math.floor(luft.price_msat),
-            speeds: Array.isArray(luft.speeds) ? luft.speeds.map(String) : null,
-            rated: luft.rated !== false,
-            casual: luft.casual !== false,
+            role: nochess.role,
+            msat: Math.floor(nochess.price_msat),
+            speeds: Array.isArray(nochess.speeds) ? nochess.speeds.map(String) : null,
+            rated: nochess.rated !== false,
+            casual: nochess.casual !== false,
           }
         : null,
     };

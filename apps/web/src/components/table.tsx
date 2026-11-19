@@ -1,4 +1,4 @@
-import { Icon, type IconName } from "@luft/ui/components/icon";
+import { Icon, type IconName } from "@nochess/ui/components/icon";
 import { cn } from "cn";
 import { m, useReducedMotion } from "motion/react";
 import { type ReactNode, useEffect, useRef } from "react";

@@ -1,5 +1,5 @@
 {
-  "name": "@luft/core",
+  "name": "@nochess/core",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -18,7 +18,7 @@
     "nostr-tools": "catalog:"
   },
   "devDependencies": {
-    "@luft/tsconfig": "workspace:*",
+    "@nochess/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

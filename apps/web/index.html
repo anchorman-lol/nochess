@@ -18,8 +18,8 @@
     />
     <script>
       try {
-        const saved = JSON.parse(localStorage.getItem("luft:settings") ?? "{}");
-        const theme = saved.theme ?? localStorage.getItem("luft:theme") ?? "system";
+        const saved = JSON.parse(localStorage.getItem("nochess:settings") ?? "{}");
+        const theme = saved.theme ?? localStorage.getItem("nochess:theme") ?? "system";
         document.documentElement.dataset.theme =
           theme === "system"
             ? matchMedia("(prefers-color-scheme: dark)").matches

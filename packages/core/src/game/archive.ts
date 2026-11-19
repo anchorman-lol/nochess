@@ -32,7 +32,7 @@ type Proof = { head: GameEvent[]; sigs: [number, string][]; extra: GameEvent[] }
 export function pgn(game: Game, site: string): string {
   const clock = parseTc(game.tc)!;
   const headers = {
-    Event: `Luft ${game.rated ? "rated" : "casual"} ${speedOf(game.tc)} game`,
+    Event: `Nochess ${game.rated ? "rated" : "casual"} ${speedOf(game.tc)} game`,
     Site: site,
     Date: new Date(game.startedAt * 1000).toISOString().slice(0, 10).replaceAll("-", "."),
     Round: "-",

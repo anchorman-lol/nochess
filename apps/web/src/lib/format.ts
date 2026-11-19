@@ -1,6 +1,6 @@
-import { parseTc, speedOf } from "@luft/core/game/events.ts";
-import { PROVISIONAL_RD, type Rating } from "@luft/core/game/glicko.ts";
-import type { Zap } from "@luft/core/zap/zap.ts";
+import { parseTc, speedOf } from "@nochess/core/game/events.ts";
+import { PROVISIONAL_RD, type Rating } from "@nochess/core/game/glicko.ts";
+import type { Zap } from "@nochess/core/zap/zap.ts";
 import * as nip19 from "nostr-tools/nip19";
 
 export const SIDES = ["White", "Black"] as const;

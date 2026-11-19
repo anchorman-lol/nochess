@@ -1,5 +1,5 @@
-import { audit, auditAll, type Verdict } from "@luft/core/game/archive.ts";
-import { trusted, verify, withTrusted } from "@luft/core/game/assertion.ts";
+import { audit, auditAll, type Verdict } from "@nochess/core/game/archive.ts";
+import { trusted, verify, withTrusted } from "@nochess/core/game/assertion.ts";
 import {
   address,
   build,
@@ -16,21 +16,21 @@ import {
   termsOf,
   TOPIC,
   WAIT,
-} from "@luft/core/game/events.ts";
-import { type Rating, ratings } from "@luft/core/game/glicko.ts";
+} from "@nochess/core/game/events.ts";
+import { type Rating, ratings } from "@nochess/core/game/glicko.ts";
 import {
   describeReliability,
   type Reliability,
   reliability,
   unproven,
-} from "@luft/core/game/reliability.ts";
-import { type Game, type Seat } from "@luft/core/game/replay.ts";
-import { openGame, Table } from "@luft/core/game/table.ts";
-import { Net } from "@luft/core/nostr/net.ts";
+} from "@nochess/core/game/reliability.ts";
+import { type Game, type Seat } from "@nochess/core/game/replay.ts";
+import { openGame, Table } from "@nochess/core/game/table.ts";
+import { Net } from "@nochess/core/nostr/net.ts";
 import type { Filter } from "nostr-tools/filter";
-import { payUrl } from "@luft/core/zap/lnurl.ts";
-import type { Zap } from "@luft/core/zap/zap.ts";
-import { BRAND } from "@luft/ui/brand";
+import { payUrl } from "@nochess/core/zap/lnurl.ts";
+import type { Zap } from "@nochess/core/zap/zap.ts";
+import { BRAND } from "@nochess/ui/brand";
 import { Chess } from "chess.js";
 import { type ChatLine, mayWrite, rateLimited, type Room } from "../chat/rules.ts";
 import { play as playSound, setMusic } from "../lib/audio.ts";
@@ -122,7 +122,7 @@ export const PLATFORM = platformFrom(import.meta.env);
 const RATERS: string[] = (import.meta.env.VITE_RATERS ?? "").split(",").filter(Boolean);
 const DEV_WALLET: string = import.meta.env.VITE_DEV_WALLET ?? "";
 if (DEV_WALLET) (await import("../zap/devwallet.ts")).install(DEV_WALLET);
-const WELCOMED = "luft:welcomed";
+const WELCOMED = "nochess:welcomed";
 const nowSec = () => Math.floor(Date.now() / 1000);
 
 let version = 0;
@@ -718,10 +718,10 @@ export type LobbyModel = {
 };
 function lobby(): Route {
   localStorage.setItem(WELCOMED, "1");
-  let tc = localStorage.getItem("luft:tc") ?? "300+3";
+  let tc = localStorage.getItem("nochess:tc") ?? "300+3";
   if (!speedOf(tc)) tc = "300+3";
-  let rated = localStorage.getItem("luft:rated") !== "0";
-  let level = Number(localStorage.getItem("luft:level") ?? 3);
+  let rated = localStorage.getItem("nochess:rated") !== "0";
+  let level = Number(localStorage.getItem("nochess:level") ?? 3);
   let error = "";
   /** My open seeks, each with a table that admits a guest and renews it while the lobby is open. */
   const own = new Map<string, Table>();
@@ -762,9 +762,9 @@ function lobby(): Route {
     );
   }
   const save = () => {
-    localStorage.setItem("luft:tc", tc);
-    localStorage.setItem("luft:rated", rated ? "1" : "0");
-    localStorage.setItem("luft:level", String(level));
+    localStorage.setItem("nochess:tc", tc);
+    localStorage.setItem("nochess:rated", rated ? "1" : "0");
+    localStorage.setItem("nochess:level", String(level));
   };
 
   return {
@@ -1106,7 +1106,7 @@ export type ComputerModel = {
   thinking: boolean;
 };
 function computer(level: number): Route {
-  const loaded = import("@luft/core/engine/uci.ts").then(({ Engine, LEVELS, workerPipe }) => ({
+  const loaded = import("@nochess/core/engine/uci.ts").then(({ Engine, LEVELS, workerPipe }) => ({
     engine: new Engine(
       workerPipe(`${import.meta.env.BASE_URL}engine/stockfish-19-lite-single.js`),
       LEVELS[level - 1].skill,

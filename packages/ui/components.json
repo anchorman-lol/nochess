@@ -11,10 +11,10 @@
   },
   "iconLibrary": "lucide",
   "aliases": {
-    "components": "@luft/ui/components",
-    "utils": "@luft/ui/lib/utils",
-    "hooks": "@luft/ui/hooks",
-    "lib": "@luft/ui/lib",
-    "ui": "@luft/ui/components"
+    "components": "@nochess/ui/components",
+    "utils": "@nochess/ui/lib/utils",
+    "hooks": "@nochess/ui/hooks",
+    "lib": "@nochess/ui/lib",
+    "ui": "@nochess/ui/components"
   }
 }

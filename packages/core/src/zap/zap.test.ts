@@ -168,8 +168,8 @@ test("a lightning address or an lnurl names the pay endpoint, in the clear only 
 });
 
 test("a profile's fee block says what a service charges and which games it takes", () => {
-  const luft = { role: "bot", price_msat: 21_000, speeds: ["blitz"], casual: false };
-  const bot = profileOf({ content: JSON.stringify({ name: "B", bot: true, luft }) });
+  const nochess = { role: "bot", price_msat: 21_000, speeds: ["blitz"], casual: false };
+  const bot = profileOf({ content: JSON.stringify({ name: "B", bot: true, nochess }) });
   expect(bot.fee).toEqual({
     role: "bot",
     msat: 21_000,
@@ -183,6 +183,6 @@ test("a profile's fee block says what a service charges and which games it takes
   const human = profileOf({ content: '{"name":"H","lud16":" h@wallet.example "}' });
   expect(human).toMatchObject({ lud16: "h@wallet.example", fee: null });
   expect(covers(human, { tc: "2d", rated: false })).toBe(true);
-  const bank = { luft: { role: "bank", price_msat: 1 } };
+  const bank = { nochess: { role: "bank", price_msat: 1 } };
   expect(profileOf({ content: JSON.stringify(bank) }).fee).toBeNull();
 });

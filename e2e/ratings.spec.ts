@@ -16,7 +16,7 @@ test("a trusted rater's published rating replaces the local one and verifies whe
   await expect(black.getByTestId("verify")).toHaveCount(0);
 
   execFileSync("node", ["tools/rater.ts"], {
-    env: { ...process.env, LUFT_RELAY: RELAY, LUFT_RATER_KEY: RATER_KEY },
+    env: { ...process.env, NOCHESS_RELAY: RELAY, NOCHESS_RATER_KEY: RATER_KEY },
   });
   await expect(black.getByTestId("rated-by")).toContainText("Published by rater");
   await black.getByTestId("verify").click();

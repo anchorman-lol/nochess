@@ -10,14 +10,14 @@ import { KIND, profileOf, TOPIC } from "../packages/core/src/game/events.ts";
 import { keySigner, Net } from "../packages/core/src/nostr/net.ts";
 import { payPoint } from "../packages/core/src/zap/lnurl.ts";
 
-export const RELAY = process.env.LUFT_RELAY ?? "ws://127.0.0.1:7778";
+export const RELAY = process.env.NOCHESS_RELAY ?? "ws://127.0.0.1:7778";
 export const nowSec = () => Math.floor(Date.now() / 1000);
 export const short = (pubkey: string) => pubkey.slice(0, 8);
 
-/** The key of a service: LUFT_<NAME>_KEY, or a file under .keys/ that is made on first use. */
+/** The key of a service: NOCHESS_<NAME>_KEY, or a file under .keys/ that is made on first use. */
 export function secretOf(name: string): Uint8Array {
   const file = `.keys/${name}.hex`;
-  let hex = process.env[`LUFT_${name.toUpperCase()}_KEY`];
+  let hex = process.env[`NOCHESS_${name.toUpperCase()}_KEY`];
   if (!hex && existsSync(file)) hex = readFileSync(file, "utf8").trim();
   if (!hex) {
     hex = bytesToHex(generateSecretKey());

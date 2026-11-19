@@ -1,5 +1,5 @@
-import { Icon } from "@luft/ui/components/icon";
-import { Wordmark } from "@luft/ui/components/logo";
+import { Icon } from "@nochess/ui/components/icon";
+import { Wordmark } from "@nochess/ui/components/logo";
 import type { ReactNode } from "react";
 import { route, setSettings, settings } from "../app/store.ts";
 import { audible, toggleAudio } from "../lib/settings.ts";

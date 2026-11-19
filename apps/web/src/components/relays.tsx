@@ -4,8 +4,8 @@ import {
   DialogDescription,
   DialogTitle,
   DialogTrigger,
-} from "@luft/ui/components/dialog";
-import { Icon } from "@luft/ui/components/icon";
+} from "@nochess/ui/components/dialog";
+import { Icon } from "@nochess/ui/components/icon";
 import { cn } from "cn";
 import { type FormEvent, useState } from "react";
 import { editRelay, relays, status } from "../app/store.ts";

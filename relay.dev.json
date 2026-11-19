@@ -1,7 +1,7 @@
 {
   "listen": "127.0.0.1:7778",
   "db": ".relay-data/relay.sqlite",
-  "info": { "name": "luft dev", "description": "local anchorman relay for Luft" },
+  "info": { "name": "nochess dev", "description": "local anchorman relay for Nochess" },
   "modules": [
     { "module": "nip09" },
     { "module": "nip40" },

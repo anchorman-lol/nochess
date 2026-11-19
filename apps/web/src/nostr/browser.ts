@@ -1,11 +1,11 @@
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 import * as nip19 from "nostr-tools/nip19";
 import { generateSecretKey, getPublicKey, type VerifiedEvent } from "nostr-tools/pure";
-import { KIND, type Template } from "@luft/core/game/events.ts";
-import { keySigner, type Signer } from "@luft/core/nostr/net.ts";
+import { KIND, type Template } from "@nochess/core/game/events.ts";
+import { keySigner, type Signer } from "@nochess/core/nostr/net.ts";
 import { RELAY_STORE, RELAYS_STORE, relaysFrom } from "./relays.ts";
 
-const KEY_STORE = "luft:key";
+const KEY_STORE = "nochess:key";
 /** Ours first; the public ones keep the app playable while it is down. */
 export const DEFAULT_RELAYS = import.meta.env.VITE_RELAY_URL
   ? [import.meta.env.VITE_RELAY_URL]

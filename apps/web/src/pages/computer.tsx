@@ -1,4 +1,4 @@
-import type { Seat } from "@luft/core/game/replay.ts";
+import type { Seat } from "@nochess/core/game/replay.ts";
 import { type ComputerModel, route } from "../app/store.ts";
 import { Avatar } from "../components/common.tsx";
 import {

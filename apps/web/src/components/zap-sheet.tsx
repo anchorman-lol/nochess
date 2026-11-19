@@ -1,5 +1,5 @@
-import { BRAND } from "@luft/ui/brand";
-import { Icon } from "@luft/ui/components/icon";
+import { BRAND } from "@nochess/ui/brand";
+import { Icon } from "@nochess/ui/components/icon";
 import { cn } from "cn";
 import { renderSVG } from "uqr";
 import { PLATFORM, wallet, zap, zapSheet } from "../app/store.ts";

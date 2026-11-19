@@ -1,5 +1,5 @@
 {
-  "name": "luft",
+  "name": "nochess",
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
@@ -12,7 +12,7 @@
     "review": "node tools/reviewer.ts",
     "rate": "node tools/rater.ts",
     "zapmock": "node tools/zapmock.ts",
-    "build": "pnpm -r typecheck && tsc && pnpm --filter @luft/web build",
+    "build": "pnpm -r typecheck && tsc && pnpm --filter @nochess/web build",
     "deploy:pages": "scripts/pages.sh",
     "typecheck": "pnpm -r typecheck && tsc",
     "test": "vitest run",
@@ -23,14 +23,14 @@
     "format": "oxfmt"
   },
   "dependencies": {
-    "@luft/core": "workspace:*",
     "@noble/hashes": "catalog:",
+    "@nochess/core": "workspace:*",
     "chess.js": "catalog:",
     "nostr-tools": "catalog:",
     "stockfish": "19.0.1"
   },
   "devDependencies": {
-    "@luft/tsconfig": "workspace:*",
+    "@nochess/tsconfig": "workspace:*",
     "@playwright/test": "catalog:",
     "@types/node": "catalog:",
     "oxfmt": "0.79.0",

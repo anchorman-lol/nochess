@@ -24,8 +24,8 @@ export type Store = {
 };
 
 const nowSec = () => Math.floor(Date.now() / 1000);
-export const sessionKey = (addr: string) => `luft:session:${addr}`;
-const saltKey = (addr: string) => `luft:salt:${addr}`;
+export const sessionKey = (addr: string) => `nochess:session:${addr}`;
+const saltKey = (addr: string) => `nochess:salt:${addr}`;
 
 /** Opens a seek, or a challenge to one player, waiting `wait` seconds for the join; returns its game id. */
 export async function openGame(

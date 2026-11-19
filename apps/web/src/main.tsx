@@ -1,5 +1,6 @@
+import "./lib/run-migration.ts";
 import "./app.css";
-import { BRAND } from "@luft/ui/brand";
+import { BRAND } from "@nochess/ui/brand";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./app/app.tsx";

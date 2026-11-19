@@ -1,5 +1,5 @@
 {
-  "extends": "@luft/tsconfig/base.json",
+  "extends": "@nochess/tsconfig/base.json",
   "compilerOptions": {
     "lib": ["ES2024", "ESNext.Collection", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",

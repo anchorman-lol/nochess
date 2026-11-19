@@ -1,12 +1,12 @@
-import { type GameEvent, KIND, type Profile, tagValue } from "@luft/core/game/events.ts";
-import type { Net } from "@luft/core/nostr/net.ts";
-import { invoiceFor, type PayPoint, payPoint } from "@luft/core/zap/lnurl.ts";
+import { type GameEvent, KIND, type Profile, tagValue } from "@nochess/core/game/events.ts";
+import type { Net } from "@nochess/core/nostr/net.ts";
+import { invoiceFor, type PayPoint, payPoint } from "@nochess/core/zap/lnurl.ts";
 import { MAX_SHARE } from "./platform.ts";
 import { pay } from "./wallet.ts";
-import { readZap, split, type Zap, zapRequest } from "@luft/core/zap/zap.ts";
+import { readZap, split, type Zap, zapRequest } from "@nochess/core/zap/zap.ts";
 
-const SHARE_STORE = "luft:share";
-const AMOUNT_STORE = "luft:zap";
+const SHARE_STORE = "nochess:share";
+const AMOUNT_STORE = "nochess:zap";
 
 /** One zap of a sheet: `open` has an invoice, `sent` was paid by the wallet, `paid` has its receipt. */
 export type Line = {

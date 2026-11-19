@@ -1,6 +1,6 @@
 // The bot account: a key of its own that accepts challenges over the relay and answers with
 // Stockfish. Its games are ordinary games, so they are archived, audited and rated like any other.
-// With LUFT_BOT_PRICE (sats) it joins a challenge only once a valid zap receipt pays for it. A
+// With NOCHESS_BOT_PRICE (sats) it joins a challenge only once a valid zap receipt pays for it. A
 // challenge it can't take (other terms, all tables in use, a relay that refuses the game's
 // subscription) it declines at once rather than letting it wait out its time.
 import { Engine, ENGINE } from "../packages/core/src/engine/uci.ts";
@@ -20,22 +20,22 @@ import { payment } from "../packages/core/src/zap/fee.ts";
 import { readZap, type Zap } from "../packages/core/src/zap/zap.ts";
 import { connect, enginePipe, fileStore, nowSec, RELAY, servicePoint, short } from "./node.ts";
 
-const SKILL = Number(process.env.LUFT_BOT_SKILL ?? 20);
-const MOVE_MS = Number(process.env.LUFT_BOT_MS ?? 300);
-const NAME = process.env.LUFT_BOT_NAME ?? "Nochess bot";
-const PRICE = Number(process.env.LUFT_BOT_PRICE ?? 0) * 1000;
+const SKILL = Number(process.env.NOCHESS_BOT_SKILL ?? 20);
+const MOVE_MS = Number(process.env.NOCHESS_BOT_MS ?? 300);
+const NAME = process.env.NOCHESS_BOT_NAME ?? "Nochess bot";
+const PRICE = Number(process.env.NOCHESS_BOT_PRICE ?? 0) * 1000;
 /** Each table is a subscription, and relays cap them per connection (anchorman at 20). */
-const MAX_TABLES = Number(process.env.LUFT_BOT_TABLES ?? 15);
-const modes = (process.env.LUFT_BOT_MODES ?? "rated,casual").split(",");
+const MAX_TABLES = Number(process.env.NOCHESS_BOT_TABLES ?? 15);
+const modes = (process.env.NOCHESS_BOT_MODES ?? "rated,casual").split(",");
 const content = JSON.stringify({
   name: NAME,
-  about: `${ENGINE}, skill ${SKILL}, ${MOVE_MS} ms a move. Challenge me on Luft.`,
+  about: `${ENGINE}, skill ${SKILL}, ${MOVE_MS} ms a move. Challenge me on Nochess.`,
   bot: true,
-  lud16: process.env.LUFT_BOT_LUD16,
-  luft: {
+  lud16: process.env.NOCHESS_BOT_LUD16,
+  nochess: {
     role: "bot",
     price_msat: PRICE,
-    speeds: process.env.LUFT_BOT_SPEEDS?.split(","),
+    speeds: process.env.NOCHESS_BOT_SPEEDS?.split(","),
     rated: modes.includes("rated"),
     casual: modes.includes("casual"),
   },
@@ -43,7 +43,7 @@ const content = JSON.stringify({
 const profile = profileOf({ content });
 const point = PRICE ? await servicePoint(profile.lud16) : null;
 
-const id = process.env.LUFT_BOT_ID ?? "bot";
+const id = process.env.NOCHESS_BOT_ID ?? "bot";
 const net = connect(id);
 const me = net.signer.pubkey;
 /** Checked zaps to this bot, and the receipts its joins have spent. */

@@ -12,19 +12,21 @@ describe("the relay list", () => {
   });
 
   it("is the saved list, and a share link's relay wins for its tab", () => {
-    const local = memory({ "luft:relays": JSON.stringify(["wss://a.example", "wss://b.example"]) });
+    const local = memory({
+      "nochess:relays": JSON.stringify(["wss://a.example", "wss://b.example"]),
+    });
     expect(relaysFrom(memory(), local, DEFAULTS)).toEqual(["wss://a.example", "wss://b.example"]);
-    const session = memory({ "luft:relay": "wss://shared.example" });
+    const session = memory({ "nochess:relay": "wss://shared.example" });
     expect(relaysFrom(session, local, DEFAULTS)).toEqual(["wss://shared.example"]);
   });
 
   it("takes the single relay an older version saved, and ignores a list that isn't one", () => {
-    expect(relaysFrom(memory(), memory({ "luft:relay": "wss://old.example" }), DEFAULTS)).toEqual([
-      "wss://old.example",
-    ]);
-    const broken = memory({ "luft:relays": "{oops" });
+    expect(
+      relaysFrom(memory(), memory({ "nochess:relay": "wss://old.example" }), DEFAULTS),
+    ).toEqual(["wss://old.example"]);
+    const broken = memory({ "nochess:relays": "{oops" });
     expect(relaysFrom(memory(), broken, DEFAULTS)).toEqual(DEFAULTS);
-    expect(relaysFrom(memory(), memory({ "luft:relays": "[]" }), DEFAULTS)).toEqual(DEFAULTS);
+    expect(relaysFrom(memory(), memory({ "nochess:relays": "[]" }), DEFAULTS)).toEqual(DEFAULTS);
   });
 
   it("adds a websocket URL once, at the end, tidied", () => {

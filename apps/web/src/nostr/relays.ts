@@ -2,9 +2,9 @@ type Store = Pick<Storage, "getItem">;
 export type RelayEdit = "add" | "remove" | "up" | "use";
 
 /** The player's relays, tried in order. */
-export const RELAYS_STORE = "luft:relays";
+export const RELAYS_STORE = "nochess:relays";
 /** One relay: a share link's for its tab in sessionStorage, or what an older version saved. */
-export const RELAY_STORE = "luft:relay";
+export const RELAY_STORE = "nochess:relay";
 
 /** The relays to try in order: a share link's for its tab, else the player's list, else the defaults. */
 export function relaysFrom(session: Store, local: Store, defaults: string[]): string[] {

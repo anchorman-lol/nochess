@@ -1,6 +1,6 @@
-import { BRAND } from "@luft/ui/brand";
-import { Icon } from "@luft/ui/components/icon";
-import { Mark, Wordmark } from "@luft/ui/components/logo";
+import { BRAND } from "@nochess/ui/brand";
+import { Icon } from "@nochess/ui/components/icon";
+import { Mark, Wordmark } from "@nochess/ui/components/logo";
 import { cn } from "cn";
 import { m, useReducedMotion } from "motion/react";
 import { useEffect, useState } from "react";

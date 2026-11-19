@@ -1,7 +1,8 @@
 /**
  * The product's name and lines, in one place: swap the name here and the app, the landing page,
- * the tab title and the wordmark follow (the wordmark draws the name's first o as the loop). Wire and storage identifiers (the `luft` topic tag,
- * `luft:` localStorage keys, `LUFT_` env vars) are protocol, not brand, and stay as they are.
+ * the tab title and the wordmark follow (the wordmark draws the name's first o as the loop). Wire
+ * and storage identifiers (the `nochess` topic tag, `nochess:` localStorage keys, `NOCHESS_` env
+ * vars) are protocol and don't follow it.
  */
 export const BRAND = {
   name: "Nochess",

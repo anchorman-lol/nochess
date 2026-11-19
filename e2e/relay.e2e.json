@@ -1,7 +1,7 @@
 {
   "listen": "127.0.0.1:7788",
   "db": ":memory:",
-  "info": { "name": "luft e2e", "description": "throwaway anchorman relay for the e2e test" },
+  "info": { "name": "nochess e2e", "description": "throwaway anchorman relay for the e2e test" },
   "modules": [
     { "module": "nip09" },
     { "module": "nip40" },

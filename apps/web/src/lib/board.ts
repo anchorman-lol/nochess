@@ -1,5 +1,5 @@
 import { Chess, type Square } from "chess.js";
-import type { Seat } from "@luft/core/game/replay.ts";
+import type { Seat } from "@nochess/core/game/replay.ts";
 
 /** The board after `ply` of the moves, with the last move and a checked king to highlight. */
 export function position(sans: string[], ply: number) {

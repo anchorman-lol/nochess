@@ -7,8 +7,9 @@ import { paid, service, stored, ZAP_HOST } from "./play.ts";
 const PAYBOT_KEY = Buffer.from("3".repeat(64), "hex");
 
 let bots: ChildProcess[];
-const env = { LUFT_BOT_MS: "30" };
-const freeBot = () => service(["tools/bot.ts"], { ...env, LUFT_BOT_KEY: "1".repeat(64) }, "ready");
+const env = { NOCHESS_BOT_MS: "30" };
+const freeBot = () =>
+  service(["tools/bot.ts"], { ...env, NOCHESS_BOT_KEY: "1".repeat(64) }, "ready");
 
 test.beforeAll(async () => {
   bots = await Promise.all([
@@ -17,12 +18,12 @@ test.beforeAll(async () => {
       ["tools/bot.ts"],
       {
         ...env,
-        LUFT_BOT_ID: "paybot",
-        LUFT_PAYBOT_KEY: PAYBOT_KEY.toString("hex"),
-        LUFT_BOT_NAME: "Paybot",
-        LUFT_BOT_PRICE: "21",
-        LUFT_BOT_LUD16: `paybot@${ZAP_HOST}`,
-        LUFT_BOT_SPEEDS: "blitz,rapid",
+        NOCHESS_BOT_ID: "paybot",
+        NOCHESS_PAYBOT_KEY: PAYBOT_KEY.toString("hex"),
+        NOCHESS_BOT_NAME: "Paybot",
+        NOCHESS_BOT_PRICE: "21",
+        NOCHESS_BOT_LUD16: `paybot@${ZAP_HOST}`,
+        NOCHESS_BOT_SPEEDS: "blitz,rapid",
       },
       "ready",
     ),

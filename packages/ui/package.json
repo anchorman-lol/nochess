@@ -1,5 +1,5 @@
 {
-  "name": "@luft/ui",
+  "name": "@nochess/ui",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -21,7 +21,7 @@
     "tw-animate-css": "catalog:"
   },
   "devDependencies": {
-    "@luft/tsconfig": "workspace:*",
+    "@nochess/tsconfig": "workspace:*",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "tailwindcss": "catalog:",

@@ -1,7 +1,7 @@
-import { Slider } from "@luft/ui/components/slider";
-import { Switch } from "@luft/ui/components/switch";
+import { Slider } from "@nochess/ui/components/slider";
+import { Switch } from "@nochess/ui/components/switch";
 import { cn } from "cn";
-import { payUrl } from "@luft/core/zap/lnurl.ts";
+import { payUrl } from "@nochess/core/zap/lnurl.ts";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { ownProfile, saveProfile, setSettings, settings, sound } from "../app/store.ts";
 import { Board, pieceUrl } from "../components/board.tsx";

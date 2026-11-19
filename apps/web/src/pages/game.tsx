@@ -1,6 +1,6 @@
-import { parseTc, speedOf } from "@luft/core/game/events.ts";
-import { type Seat, turnOf } from "@luft/core/game/replay.ts";
-import { Icon } from "@luft/ui/components/icon";
+import { parseTc, speedOf } from "@nochess/core/game/events.ts";
+import { type Seat, turnOf } from "@nochess/core/game/replay.ts";
+import { Icon } from "@nochess/ui/components/icon";
 import { cn } from "cn";
 import { FEE_RULE, type GameModel, me, route, settings, status, zapSheet } from "../app/store.ts";
 import { Chat } from "../components/chat.tsx";

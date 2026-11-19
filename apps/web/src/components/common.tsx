@@ -1,10 +1,10 @@
-import type { Speed } from "@luft/core/game/events.ts";
-import { Icon } from "@luft/ui/components/icon";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@luft/ui/components/tooltip";
+import type { Speed } from "@nochess/core/game/events.ts";
+import { Icon } from "@nochess/ui/components/icon";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@nochess/ui/components/tooltip";
 import { cn } from "cn";
 import type { ReactNode } from "react";
 import { me, rate, who } from "../app/store.ts";
-import type { Rating } from "@luft/core/game/glicko.ts";
+import type { Rating } from "@nochess/core/game/glicko.ts";
 import { plural, provisional, shortKey } from "../lib/format.ts";
 
 /** A name, with the BOT tag for bot accounts and "(you)" for this browser's key. */
