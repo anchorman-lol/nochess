@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { expect, type Page, test } from "@playwright/test";
-import { move, player, receiveZaps, service, sitDown, zap, ZAP_HOST } from "./play.ts";
+import jesterGames from "../packages/core/src/jester/fixtures.json" with { type: "json" };
+import { move, player, receiveZaps, service, sitDown, store, zap, ZAP_HOST } from "./play.ts";
 
 const DIR = process.env.SHOTS_DIR ?? "test-results/shots";
 const WIDTHS = [1440, 390];
@@ -72,7 +73,10 @@ test("landing, lobby, game, settings, zaps, a paid bot and an invoice render wit
       }
   };
   await shoot("landing", "main h1", "/#/about");
-  await shoot("lobby", "[data-testid=relay-status]", "/#/play");
+  await store(jesterGames);
+  await white.goto("/#/play");
+  await expect(white.getByTestId("jester-game")).toHaveCount(10);
+  await shoot("lobby", "[data-testid=jester-game]", "/#/play");
   await shoot("game", "[data-testid=chat]", game);
   await shoot("settings", "[data-testid=settings-chat]", "/#/settings");
   await shoot("games", "[data-testid=list-rows]", "/#/games");

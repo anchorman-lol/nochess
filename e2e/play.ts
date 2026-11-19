@@ -88,6 +88,13 @@ export async function move(mover: Page, from: string, to: string, watchers: Page
     await expect(page.getByTestId("board")).not.toHaveAttribute("data-fen", before!);
 }
 
+/** Puts already signed events on the test relay, such as recorded games from other clients. */
+export async function store(events: NostrEvent[]) {
+  const relay = await Relay.connect(RELAY);
+  for (const event of events) await relay.publish(event);
+  relay.close();
+}
+
 /** What the test relay has stored for a filter. */
 export async function stored(filter: Filter): Promise<NostrEvent[]> {
   const relay = await Relay.connect(RELAY);
