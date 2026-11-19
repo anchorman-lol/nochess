@@ -1,14 +1,21 @@
 import { domAnimation, LazyMotion, MotionConfig } from "motion/react";
-import { useEffect, useSyncExternalStore } from "react";
+import { lazy, Suspense, useEffect, useSyncExternalStore } from "react";
 import { Shell } from "../components/shell.tsx";
 import { ZapSheet } from "../components/zap-sheet.tsx";
-import { ComputerPage } from "../pages/computer.tsx";
-import { GamePage } from "../pages/game.tsx";
-import { Landing } from "../pages/landing.tsx";
-import { Lobby } from "../pages/lobby.tsx";
-import { ProfilePage } from "../pages/profile.tsx";
-import { SettingsPage } from "../pages/settings.tsx";
 import { board, getVersion, route, subscribe } from "./store.ts";
+
+const ComputerPage = lazy(() =>
+  import("../pages/computer.tsx").then((m) => ({ default: m.ComputerPage })),
+);
+const GamePage = lazy(() => import("../pages/game.tsx").then((m) => ({ default: m.GamePage })));
+const Landing = lazy(() => import("../pages/landing.tsx").then((m) => ({ default: m.Landing })));
+const Lobby = lazy(() => import("../pages/lobby.tsx").then((m) => ({ default: m.Lobby })));
+const ProfilePage = lazy(() =>
+  import("../pages/profile.tsx").then((m) => ({ default: m.ProfilePage })),
+);
+const SettingsPage = lazy(() =>
+  import("../pages/settings.tsx").then((m) => ({ default: m.SettingsPage })),
+);
 
 const KEYS: Record<string, string> = {
   ArrowLeft: "prev",
@@ -40,7 +47,9 @@ export function App() {
     <LazyMotion features={domAnimation} strict>
       <MotionConfig reducedMotion="user">
         <Shell>
-          <Page />
+          <Suspense>
+            <Page />
+          </Suspense>
         </Shell>
         <ZapSheet />
       </MotionConfig>

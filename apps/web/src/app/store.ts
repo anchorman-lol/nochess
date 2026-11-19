@@ -1,4 +1,3 @@
-import { LEVELS, Engine, workerPipe } from "@luft/core/engine/uci.ts";
 import { audit, auditAll, type Verdict } from "@luft/core/game/archive.ts";
 import { trusted, verify, withTrusted } from "@luft/core/game/assertion.ts";
 import {
@@ -37,7 +36,7 @@ import {
   loadSigner,
   parseGameLink,
   parsePubkey,
-  relayUrl,
+  relayUrls,
 } from "../nostr/browser.ts";
 import { zapper } from "../zap/sheet.ts";
 import { setNwc, walletName } from "../zap/wallet.ts";
@@ -149,7 +148,7 @@ export const sound = (name: Parameters<typeof playSound>[0]) => playSound(name, 
 const signer = await loadSigner();
 export const me = signer.pubkey;
 export const source = signer.source;
-export const net = new Net(relayUrl(), signer, () => paint());
+export const net = new Net(relayUrls(), signer, () => paint());
 const profiles = new Map<string, GameEvent>();
 const wanted = new Set<string>();
 let asking: string[] = [];
@@ -900,11 +899,13 @@ export type ComputerModel = {
   thinking: boolean;
 };
 function computer(level: number): Route {
-  const { skill, ms } = LEVELS[level - 1];
-  const engine = new Engine(
-    workerPipe(`${import.meta.env.BASE_URL}engine/stockfish-19-lite-single.js`),
-    skill,
-  );
+  const loaded = import("@luft/core/engine/uci.ts").then(({ Engine, LEVELS, workerPipe }) => ({
+    engine: new Engine(
+      workerPipe(`${import.meta.env.BASE_URL}engine/stockfish-19-lite-single.js`),
+      LEVELS[level - 1].skill,
+    ),
+    ms: LEVELS[level - 1].ms,
+  }));
   let chess = new Chess();
   let seat: Seat = 0;
   let thinking = false;
@@ -914,6 +915,7 @@ function computer(level: number): Route {
     if (chess.isGameOver() || chess.turn() === "wb"[seat]) return;
     thinking = true;
     paint();
+    const { engine, ms } = await loaded;
     const { best } = await engine.go(chess.fen(), `movetime ${ms}`);
     thinking = false;
     if (game !== chess) return;
@@ -966,7 +968,7 @@ function computer(level: number): Route {
       else if (action === "swap") restart((1 - seat) as Seat);
       paint();
     },
-    leave: () => engine.close(),
+    leave: () => void loaded.then(({ engine }) => engine.close()),
   };
 }
 

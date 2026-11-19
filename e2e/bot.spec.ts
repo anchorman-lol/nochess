@@ -56,19 +56,21 @@ async function playOut(page: Page) {
 test("a player challenges the bot account and plays a rated game to the end", async ({ page }) => {
   test.setTimeout(240_000);
   await page.goto("/#/play");
-  const row = page.getByTestId("bots").locator("li", { hasText: "Luftbot" });
+  await page.getByRole("tab", { name: "A bot" }).click();
+  const row = page.getByTestId("bots").locator("li", { hasText: "Nochess bot" });
   await expect(row.locator(".bot")).toHaveText("BOT");
   await expect(row.getByTestId("challenge-bot")).toHaveText("Challenge");
   await row.getByTestId("challenge-bot").click();
   await playOut(page);
   await page.getByTestId("home").click();
-  const result = page.getByTestId("results").locator("li", { hasText: "Luftbot" });
+  const result = page.getByTestId("results").locator("li", { hasText: "Nochess bot" });
   await expect(result).toContainText("(you)");
   await expect(result).toContainText("rated");
   await expect(page.getByTestId("ranks").locator("li", { hasText: "(you)" })).toContainText(
     "blitz",
   );
-  await expect(page.getByTestId("bots").locator("li", { hasText: "Luftbot" })).toContainText(
+  await page.getByRole("tab", { name: "A bot" }).click();
+  await expect(page.getByTestId("bots").locator("li", { hasText: "Nochess bot" })).toContainText(
     /\d{4}/,
   );
 });
@@ -78,11 +80,14 @@ test("a bot with a price joins only once the challenge is paid, and then plays",
 }) => {
   test.setTimeout(240_000);
   await page.goto("/#/play");
+  await page.getByRole("tab", { name: "A bot" }).click();
   const row = page.getByTestId("bots").locator("li", { hasText: "Paybot" });
   await expect(row.getByTestId("challenge-bot")).toHaveText("Challenge · 21 sats");
-  await page.getByTestId("tc").selectOption("1800+0");
+  const time = (label: string) =>
+    page.getByRole("radiogroup", { name: "Time" }).getByText(label, { exact: true }).click();
+  await time("30+0");
   await expect(row.getByTestId("challenge-bot")).toBeDisabled();
-  await page.getByTestId("tc").selectOption("300+3");
+  await time("5+3");
   await row.getByTestId("challenge-bot").click();
 
   await expect(page.getByTestId("pay-fee")).toHaveText("Pay 21 sats to start");

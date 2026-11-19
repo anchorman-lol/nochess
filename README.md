@@ -1,4 +1,4 @@
-# Mateproof
+# Nochess
 
 Chess between Nostr keys. Two people play a clocked game by publishing signed events to a relay; anyone can watch, and every finished game becomes a NIP-64 note that proves itself. There is no game server.
 
@@ -13,20 +13,20 @@ pnpm dev        # relay on ws://127.0.0.1:7778, bots, a reviewer, a mock Lightni
 
 Open the app in two browsers (or one normal and one private window) to play yourself. The relay binary is built once from `~/work/anchorman-relay` into `.relay-bin/`.
 
-`pnpm dev` also starts a mock Lightning provider on `127.0.0.1:7779`, so zaps and fees work with play money: Luftbot is free, Luftbot Pro plays for 21 sats, the reviewer reviews a game for 50. To be zapped yourself, open "Zaps: your address and wallet" in the lobby and save any `name@127.0.0.1:7779`.
+`pnpm dev` also starts a mock Lightning provider on `127.0.0.1:7779`, so zaps and fees work with play money: Nochess bot is free, Nochess bot Pro plays for 21 sats, the reviewer reviews a game for 50. To be zapped yourself, open "Zaps: your address and wallet" in the lobby and save any `name@127.0.0.1:7779`.
 
-| Command               | What it does                                                                                                                                           |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `pnpm dev`            | Relay, mock Lightning provider, a free and a paid bot, the paid reviewer and the Vite dev server                                                       |
-| `pnpm bot`            | A bot account alone. `LUFT_BOT_SKILL` (0 to 20), `LUFT_BOT_MS` per move, `LUFT_BOT_NAME`; to charge, `LUFT_BOT_PRICE` in sats and `LUFT_BOT_LUD16`     |
-| `pnpm review`         | The automated fair-play reviewer: analyses finished games and publishes NIP-32 labels. `--dry` prints only, `--include-bots` reviews declared bots too |
-| `pnpm review --serve` | The same reviewer on request: reviews a game once a zap of `LUFT_REVIEW_PRICE` sats (default 50) to `LUFT_REVIEW_LUD16` names it                       |
-| `pnpm zapmock`        | The mock Lightning provider alone, on `LUFT_ZAP_PORT` (default 7779)                                                                                   |
-| `pnpm rate`           | The reference Glicko-2 rater: publishes one checkable assertion per player. `--dry` prints only, `--watch` keeps rating, `--pubkey` prints its key     |
-| `pnpm test`           | Unit tests: replay, clock, archive audit, ratings, reviewer statistics, zap receipts, splits and fee gating, settings, sounds and chat rules           |
-| `pnpm test:e2e`       | Playwright: two browsers play a full game and chat, one plays the bot accounts to the end, players are zapped, a bot and a reviewer are paid           |
-| `pnpm shots`          | Screenshots of the landing page, lobby, game and settings at 1440 and 390 px, light and dark, into `SHOTS_DIR`; fails on a console error               |
-| `pnpm check`          | Lint, format check, typecheck, unit tests and e2e                                                                                                      |
+| Command               | What it does                                                                                                                                                            |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm dev`            | Relay, mock Lightning provider, a free and a paid bot, the paid reviewer and the Vite dev server                                                                        |
+| `pnpm bot`            | A bot account alone. `LUFT_BOT_SKILL` (0 to 20), `LUFT_BOT_MS` per move, `LUFT_BOT_NAME`; to charge, `LUFT_BOT_PRICE` in sats and `LUFT_BOT_LUD16`                      |
+| `pnpm review`         | The automated fair-play reviewer: analyses finished games and publishes NIP-32 labels. `--dry` prints only, `--include-bots` reviews declared bots too                  |
+| `pnpm review --serve` | The same reviewer on request: reviews a game once a zap of `LUFT_REVIEW_PRICE` sats (default 50) to `LUFT_REVIEW_LUD16` names it                                        |
+| `pnpm zapmock`        | The mock Lightning provider alone, on `LUFT_ZAP_PORT` (default 7779)                                                                                                    |
+| `pnpm rate`           | The reference Glicko-2 rater: publishes one checkable assertion per player. `--dry` prints only, `--watch` keeps rating, `--pubkey` prints its key                      |
+| `pnpm test`           | Unit tests: replay, clock, archive audit, ratings, reviewer statistics, zap receipts, splits and fee gating, settings, sounds and chat rules                            |
+| `pnpm test:e2e`       | Playwright: two browsers play a full game and chat, one plays the bot accounts to the end, players are zapped, a bot and a reviewer are paid                            |
+| `pnpm shots`          | Screenshots of the landing page, lobby, game, settings, a zap, a paid bot and an invoice at 1440 and 390 px, light and dark, into `SHOTS_DIR`; fails on a console error |
+| `pnpm check`          | Lint, format check, typecheck, unit tests and e2e                                                                                                                       |
 
 The tools read `LUFT_RELAY` (default `ws://127.0.0.1:7778`) and keep their keys in `.keys/`. A second bot needs a key of its own: `LUFT_BOT_ID=name` keeps it in `.keys/name.hex`. `LUFT_BOT_SPEEDS` (`blitz,rapid`) and `LUFT_BOT_MODES` (`rated,casual`) limit what a bot plays.
 
@@ -45,7 +45,7 @@ The tools read `LUFT_RELAY` (default `ws://127.0.0.1:7778`) and keep their keys 
 
 ## Zaps and fees
 
-Zaps go from the payer's wallet to the recipient's lightning address. Mateproof holds no money, and nothing paid depends on who wins: there are no stakes, wagers or prize pools.
+Zaps go from the payer's wallet to the recipient's lightning address. Nochess holds no money, and nothing paid depends on who wins: there are no stakes, wagers or prize pools.
 
 A zap can give a share to the platform. The dialog shows who gets what before anything is paid, the share is 5% unless the payer changes it, and 0 sends everything to the players. Each receiver is paid by an invoice of their own. Fees to a bot or reviewer are not split.
 
@@ -85,6 +85,10 @@ Sounds and music are synthesised in the browser with Web Audio (`apps/web/src/li
 | Game, light                  | Game, dark                  | On a phone                     |
 | ---------------------------- | --------------------------- | ------------------------------ |
 | ![Game](docs/game-light.png) | ![Game](docs/game-dark.png) | ![Phone](docs/game-mobile.png) |
+
+| Zapping both players | A bot that charges             | Paying without a wallet      |
+| -------------------- | ------------------------------ | ---------------------------- |
+| ![Zap](docs/zap.png) | ![Paid bot](docs/paid-bot.png) | ![Invoice](docs/invoice.png) |
 
 ## Licences
 

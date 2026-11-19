@@ -58,7 +58,6 @@ export function Lobby({ model }: { model: LobbyModel }) {
       </div>
       <aside className="grid min-w-0 content-start gap-9">
         <StartPanel model={model} />
-        <Bots model={model} />
         <Ranks model={model} />
         <You model={model} />
       </aside>
@@ -320,13 +319,12 @@ function Results({ model }: { model: LobbyModel }) {
 }
 
 function StartPanel({ model }: { model: LobbyModel }) {
-  const [tab, setTab] = useState<"custom" | "friend" | "computer">("custom");
+  const [tab, setTab] = useState<"friend" | "computer" | "bot">("friend");
   const tabs = [
-    ["custom", "Custom"],
-    ["friend", "Friend"],
+    ["friend", "A friend"],
     ["computer", "Computer"],
+    ["bot", "A bot"],
   ] as const;
-  const options = [...new Set([...TIME_CONTROLS, model.tc])];
   return (
     <section className="overflow-hidden rounded-xl border border-line" aria-label="Start a game">
       <div role="tablist" className="grid grid-cols-3 border-b border-line bg-surface">
@@ -344,41 +342,10 @@ function StartPanel({ model }: { model: LobbyModel }) {
         ))}
       </div>
       <div className="grid gap-3 p-4" role="tabpanel">
-        {tab === "custom" && (
-          <>
-            <label className="grid gap-1 text-[0.87rem] font-semibold">
-              Time control
-              <select
-                name="tc"
-                data-testid="tc"
-                value={model.tc}
-                onChange={(event) => change("tc", event.target.value)}
-                className={input}
-              >
-                {options.map((tc) => (
-                  <option key={tc} value={tc}>
-                    {tcLabel(tc)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              type="button"
-              className={cn(button, primary)}
-              data-testid="create"
-              onClick={() => act("create")}
-            >
-              Create a game
-            </button>
-            <Hint>
-              {model.rated ? "Rated" : "Casual"}, with a link to send. It also shows in the lobby.
-            </Hint>
-          </>
-        )}
         {tab === "friend" && (
           <form className="grid gap-3" onSubmit={submit("challenge")}>
             <label className="grid gap-1 text-[0.87rem] font-semibold">
-              Their key
+              Who
               <input
                 name="npub"
                 placeholder="npub1…"
@@ -386,8 +353,20 @@ function StartPanel({ model }: { model: LobbyModel }) {
                 className={input}
               />
             </label>
-            <button className={cn(button, primary)}>Challenge</button>
-            <Hint>Or create a game and send its link.</Hint>
+            <Times model={model} />
+            <button className={cn(button, primary)}>Send challenge</button>
+            <button
+              type="button"
+              className={button}
+              data-testid="create"
+              onClick={() => act("create")}
+            >
+              Get a link instead
+            </button>
+            <Hint>
+              {model.rated ? "Rated" : "Casual"}. A link works for anyone who opens it, and the game
+              also shows in the lobby.
+            </Hint>
           </form>
         )}
         {tab === "computer" && (
@@ -404,9 +383,7 @@ function StartPanel({ model }: { model: LobbyModel }) {
                     onChange={() => change("level", String(n))}
                     className="peer sr-only"
                   />
-                  <span className="grid h-9 place-items-center rounded-md border border-line font-semibold tabular-nums peer-checked:border-brand peer-checked:bg-brand peer-checked:text-brand-ink peer-focus-visible:outline-2 peer-focus-visible:outline-brand">
-                    {n}
-                  </span>
+                  <span className={chip}>{n}</span>
                 </label>
               ))}
             </div>
@@ -420,6 +397,7 @@ function StartPanel({ model }: { model: LobbyModel }) {
             <Hint>Stockfish in this browser. Casual, and nothing is published.</Hint>
           </>
         )}
+        {tab === "bot" && <Bots model={model} />}
         {model.error && (
           <p className="text-[0.9rem] text-bad" data-testid="error">
             {model.error}
@@ -430,9 +408,38 @@ function StartPanel({ model }: { model: LobbyModel }) {
   );
 }
 
+const chip =
+  "grid h-9 place-items-center rounded-md border border-line font-semibold tabular-nums peer-checked:border-brand peer-checked:bg-brand peer-checked:text-brand-ink peer-focus-visible:outline-2 peer-focus-visible:outline-brand";
+
+/** The time for a challenge; quick pairing picks it too. */
+function Times({ model }: { model: LobbyModel }) {
+  return (
+    <div className="grid gap-1 text-[0.87rem] font-semibold">
+      <span id="times">Time</span>
+      <div className="grid grid-cols-5 gap-1" role="radiogroup" aria-labelledby="times">
+        {[...new Set([...TIME_CONTROLS, model.tc])].map((tc) => (
+          <label key={tc} className="cursor-pointer" title={tcLabel(tc)}>
+            <input
+              type="radio"
+              name="tc"
+              value={tc}
+              data-testid={`tc-${tc}`}
+              checked={tc === model.tc}
+              onChange={() => change("tc", tc)}
+              className="peer sr-only"
+            />
+            <span className={chip}>{tc.replace(/^(\d+)\+/, (_, s) => `${s / 60}+`)}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Bots({ model }: { model: LobbyModel }) {
   return (
-    <Section title="Bot accounts">
+    <>
+      <Times model={model} />
       <List data-testid="bots">
         {model.bots.length ? (
           model.bots.map((bot) => (
@@ -465,11 +472,11 @@ function Bots({ model }: { model: LobbyModel }) {
           <None>No bot account is online on this relay.</None>
         )}
       </List>
-      <Hint className="mt-2">
+      <Hint>
         {terms(model.tc, model.rated)}. A human's rating moves half as far against a bot. A bot that
         names a price joins once you have paid it.
       </Hint>
-    </Section>
+    </>
   );
 }
 

@@ -6,9 +6,12 @@ import { keySigner, type Signer } from "@luft/core/nostr/net.ts";
 
 const KEY_STORE = "luft:key";
 const RELAY_STORE = "luft:relay";
-const DEFAULT_RELAY =
-  import.meta.env.VITE_RELAY_URL ??
-  (import.meta.env.PROD ? "wss://relay.anchorman.lol" : "ws://127.0.0.1:7778");
+/** Ours first; the public ones keep the app playable while it is down. */
+const DEFAULT_RELAYS = import.meta.env.VITE_RELAY_URL
+  ? [import.meta.env.VITE_RELAY_URL]
+  : import.meta.env.PROD
+    ? ["wss://relay.anchorman.lol", "wss://nos.lol", "wss://relay.damus.io"]
+    : ["ws://127.0.0.1:7778"];
 
 declare global {
   interface Window {
@@ -62,13 +65,10 @@ export function parsePubkey(text: string): string {
   }
 }
 
-export const relayUrl = () =>
-  sessionStorage.getItem(RELAY_STORE) || localStorage.getItem(RELAY_STORE) || DEFAULT_RELAY;
-export function setRelayUrl(url: string) {
-  sessionStorage.removeItem(RELAY_STORE);
-  if (url && url !== DEFAULT_RELAY) localStorage.setItem(RELAY_STORE, url);
-  else localStorage.removeItem(RELAY_STORE);
-}
+export const relayUrls = () => {
+  const chosen = sessionStorage.getItem(RELAY_STORE) || localStorage.getItem(RELAY_STORE);
+  return chosen ? [chosen] : DEFAULT_RELAYS;
+};
 /** Uses the relay a share link names, for this tab only. */
 export const followRelayHint = (url: string) => sessionStorage.setItem(RELAY_STORE, url);
 

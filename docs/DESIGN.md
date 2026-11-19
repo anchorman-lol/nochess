@@ -1,6 +1,8 @@
-# Mateproof: design
+# Nochess: design
 
-Mateproof is chess between Nostr keys. There is no game server: every action is a signed event on a relay, and `replay()` in `packages/core/src/game/replay.ts` rebuilds a game from whatever events it is given. The same events give the same game for everyone, so that function is the only judge. The wider proposal (prior art, money, phases) is a separate document; this file is what the code does.
+Nochess is chess between Nostr keys. There is no game server: every action is a signed event on a relay, and `replay()` in `packages/core/src/game/replay.ts` rebuilds a game from whatever events it is given. The same events give the same game for everyone, so that function is the only judge. The wider proposal (prior art, money, phases) is a separate document; this file is what the code does.
+
+The client uses one relay at a time. A build sets it with `VITE_RELAY_URL`; without one, production tries wss://relay.anchorman.lol first and falls back to wss://nos.lol and then wss://relay.damus.io while it can't be reached, starting from the top again after each drop (`Net` in `packages/core/src/nostr/net.ts`). Games and ratings on one relay don't show on another, so a fallback keeps the app playable rather than in sync.
 
 ## Events
 
@@ -11,7 +13,7 @@ Mateproof is chess between Nostr keys. There is no game server: every action is 
 | 1641  | Move                                                   | session key                        | `a`, `ply`, `e` the previous move (the join for the first), `fen` after the move, in exactly that order. Content: the move in SAN.                                                                                                                                             |
 | 1642  | Action                                                 | session key                        | `a`, `ply` (moves played when it was taken), `action`: `resign`, `abort`, `draw-offer`, `draw-accept`, `claim-time`                                                                                                                                                            |
 | 64    | Archive (NIP-64)                                       | each player                        | Content: PGN. `a`, `p` both players, `t`, `result`, `alt`, `proof`                                                                                                                                                                                                             |
-| 0     | Profile                                                | anyone                             | `t` `luft` when Mateproof wrote it. Content: `lud16` or `lud06` to receive zaps, `"bot": true` (NIP-24) for a bot, and for a bot or reviewer a `luft` block with its price (see Zaps and fees).                                                                                |
+| 0     | Profile                                                | anyone                             | `t` `luft` when Nochess wrote it. Content: `lud16` or `lud06` to receive zaps, `"bot": true` (NIP-24) for a bot, and for a bot or reviewer a `luft` block with its price (see Zaps and fees).                                                                                  |
 | 1985  | Fair-play label (NIP-32)                               | reviewer                           | `L` `luft/fairplay`, `l` `analysed` or `review-suggested`, `a` game, `p` player, and `e` the zap receipt when the review was paid for. Content: the numbers as JSON.                                                                                                           |
 | 9734  | Zap request (NIP-57)                                   | payer                              | `p` recipient, `amount`, `relays`, `lnurl`, and `a` when the zap is for a game. Sent to the recipient's LNURL callback, never to a relay.                                                                                                                                      |
 | 9735  | Zap receipt (NIP-57)                                   | the recipient's Lightning provider | `p`, `a`, `bolt11`, `description` (the zap request)                                                                                                                                                                                                                            |
@@ -42,9 +44,9 @@ This clock is only as honest as `created_at`. On a relay that accepts any timest
 
 ### What the relay module must do
 
-Working name `kind_time_window`, for anchorman-relay. Not built yet; Mateproof runs without it on the local relay.
+Working name `kind_time_window`, for anchorman-relay. Not built yet; Nochess runs without it on the local relay.
 
-1. Configuration: a list of kinds and a window in seconds. For Mateproof: `{ "kinds": [1641, 1642], "window_secs": 2 }`.
+1. Configuration: a list of kinds and a window in seconds. For Nochess: `{ "kinds": [1641, 1642], "window_secs": 2 }`.
 2. On EVENT with a listed kind: reject it when `abs(created_at - relay_now) > window_secs`, with `["OK", id, false, "invalid: created_at outside the window for this kind"]`. The relay's own clock is the reference.
 3. Leave every other kind alone. The global `created_at_lower_limit` stays 0, because NIP-59 gift wraps are backdated on purpose.
 4. Advertise it in the NIP-11 document, so a client or auditor can tell the rule is on before trusting a clock: for example `"limitation": { "created_at_window": { "kinds": [1641, 1642], "seconds": 2 } }`.
@@ -94,7 +96,7 @@ Every game has a chat in two rooms, as kind 9 (NIP-C7) lines signed by the write
 
 ## Zaps and fees
 
-Money in Mateproof is a tip or a fee for a service, paid over Lightning as a NIP-57 zap from the payer's wallet to the recipient's. Mateproof holds nothing and passes nothing on.
+Money in Nochess is a tip or a fee for a service, paid over Lightning as a NIP-57 zap from the payer's wallet to the recipient's. Nochess holds nothing and passes nothing on.
 
 **No stakes, wagers or prize pools.** Nothing anyone pays or receives is contingent on a game's result. A bot's fee is owed for the game whoever wins, a reviewer's fee is the same whatever its label says, and "zap the winner" is a gift from a spectator after the fact that nobody was promised. Two players putting money on a game, an entry fee that funds a prize, or a pot the client or a bot holds are all on the other side of this line and are not built.
 
@@ -108,11 +110,11 @@ Money in Mateproof is a tip or a fee for a service, paid over Lightning as a NIP
 
 `readZap()` is the one check for a receipt, used by the browser, the bot and the reviewer. It follows NIP-57 appendix F: the receipt is signed by the `nostrPubkey` the recipient's own endpoint names, its `description` is a valid signed zap request, the invoice's description hash is the hash of that request and its amount is the request's, and the receipt's `p` and `a` are the request's. A receipt signed by any other key is a claim. Nobody's word is taken for a payment, including the paying client's.
 
-Zaps show on the player cards of a game (sats zapped for that game), under the board, and on a player's page (`#/player/<pubkey>`). A player with a key kept in the browser sets their lightning address on the home page, which publishes a kind 0 on this relay. A player signing with an extension keeps their own profile: Mateproof reads it from this relay and does not write one.
+Zaps show on the player cards of a game (sats zapped for that game), under the board, and on a player's page (`#/player/<pubkey>`). A player with a key kept in the browser sets their lightning address on the home page, which publishes a kind 0 on this relay. A player signing with an extension keeps their own profile: Nochess reads it from this relay and does not write one.
 
 ### The platform's share
 
-NIP-57 appendix G splits a zap by weight and leaves the client to send one zap per receiver, so a split is several invoices. `split()` computes it: the platform's weight is the share, the recipients divide the rest equally, amounts are whole sats and the remainder goes to the first recipient. Each line gets its own zap request, invoice and receipt, and the dialog lists them before anything is paid: zapping 200 sats at 5% shows 190 for the player and 10 for Mateproof. The share defaults to 5%, is the payer's to change, and at 0 (or when it rounds to under one sat) there is one invoice and Mateproof gets nothing. Mateproof's events carry no `zap` tags: a tag is set by an event's author, and this share is the payer's choice.
+NIP-57 appendix G splits a zap by weight and leaves the client to send one zap per receiver, so a split is several invoices. `split()` computes it: the platform's weight is the share, the recipients divide the rest equally, amounts are whole sats and the remainder goes to the first recipient. Each line gets its own zap request, invoice and receipt, and the dialog lists them before anything is paid: zapping 200 sats at 5% shows 190 for the player and 10 for Nochess. The share defaults to 5%, is the payer's to change, and at 0 (or when it rounds to under one sat) there is one invoice and Nochess gets nothing. Nochess's events carry no `zap` tags: a tag is set by an event's author, and this share is the payer's choice.
 
 The share goes to `VITE_PLATFORM_LUD16`, zapped as `VITE_PLATFORM_PUBKEY`. With either unset there is no share and no mention of one. Fees are not split: a bot or reviewer gets its whole price.
 
@@ -138,7 +140,7 @@ Real Lightning needs no code change: leave `VITE_DEV_WALLET` unset, give the bot
 
 ### Known gaps
 
-- The provider must publish its receipt to Mateproof's relay, which the zap request asks for. A provider that can't reach the relay (a local one, for example) leaves the zap paid and unseen.
+- The provider must publish its receipt to Nochess's relay, which the zap request asks for. A provider that can't reach the relay (a local one, for example) leaves the zap paid and unseen.
 - A player who signs with an extension can be zapped only if their kind 0 is on this relay.
 - To check a receipt the browser fetches the recipient's LNURL endpoint, so viewing a zapped player's game tells their provider the viewer's address.
 - Zap comments, anonymous zaps and zaps for a single move are not built.

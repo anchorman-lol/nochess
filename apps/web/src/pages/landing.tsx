@@ -165,7 +165,7 @@ function Hero() {
                 </li>
               ))}
             </ol>
-            <div className="[--brand:oklch(0.45_0.19_266)] [--line:oklch(0.895_0.01_258)] [--muted-foreground:oklch(0.46_0.03_262)]">
+            <div className="text-[oklch(0.22_0.03_265)] [--brand:oklch(0.45_0.19_266)] [--line:oklch(0.895_0.01_258)] [--muted-foreground:oklch(0.46_0.03_262)]">
               <Signatures names={["Morphy", "Allies"]} count={done ? 2 : 0} />
             </div>
           </div>

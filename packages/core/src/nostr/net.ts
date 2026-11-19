@@ -24,25 +24,31 @@ type Sub = {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** One relay connection that reconnects and reopens its subscriptions. Runs in browsers and Node. */
+/**
+ * One relay connection that reconnects and reopens its subscriptions. Runs in browsers and Node.
+ * Given several relays it uses the first it can reach, and tries them in order again after a drop.
+ */
 export class Net {
   online = false;
-  readonly url: string;
+  url: string;
+  private urls: string[];
   readonly signer: Signer;
   private onStatus: () => void;
   private relay?: Relay;
   private subs = new Set<Sub>();
   private closed = false;
 
-  constructor(url: string, signer: Signer, onStatus: () => void = () => {}) {
-    this.url = url;
+  constructor(urls: string | string[], signer: Signer, onStatus: () => void = () => {}) {
+    this.urls = [urls].flat();
+    this.url = this.urls[0];
     this.signer = signer;
     this.onStatus = onStatus;
     void this.connect();
   }
 
-  private async connect(): Promise<void> {
+  private async connect(attempt = 0): Promise<void> {
     if (this.closed) return;
+    this.url = this.urls[attempt % this.urls.length];
     try {
       const relay = await Relay.connect(this.url);
       relay.onclose = () => {
@@ -56,7 +62,7 @@ export class Net {
     } catch {
       this.setOnline(false);
       await sleep(1500);
-      return this.connect();
+      return this.connect(attempt + 1);
     }
   }
 

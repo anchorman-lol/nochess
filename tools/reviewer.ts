@@ -92,7 +92,7 @@ if (process.argv.includes("--serve")) {
     created_at: nowSec(),
     tags: [["t", TOPIC]],
     content: JSON.stringify({
-      name: process.env.LUFT_REVIEW_NAME ?? "Luft reviewer",
+      name: process.env.LUFT_REVIEW_NAME ?? "Nochess reviewer",
       about: `Fair-play review on request: ${ENGINE}, depth ${PAID_DEPTH}.`,
       lud16,
       luft: { role: "review", price_msat: PRICE },

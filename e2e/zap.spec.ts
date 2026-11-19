@@ -145,14 +145,14 @@ test("a watcher zaps both players of a game, and a player pays a reviewer for a 
   await white.getByTestId("request-review").click();
   await expect(white.getByTestId("request-review")).toHaveText("Request a review (50 sats)");
   const sheet = white.getByTestId("zap-sheet");
-  await expect(sheet).toContainText("Ask Luft reviewer for a review");
+  await expect(sheet).toContainText("Ask Nochess reviewer for a review");
   await expect(sheet.getByTestId("zap-sats")).toHaveCount(0);
   await sheet.getByTestId("zap-go").click();
   await paid(white, 1);
   await sheet.getByTestId("zap-close").click();
   for (const page of [white, watcher]) {
     await expect(page.getByTestId("labels").locator("li")).toHaveCount(2);
-    await expect(page.getByTestId("labels")).toContainText("paid review by Luft reviewer");
+    await expect(page.getByTestId("labels")).toContainText("paid review by Nochess reviewer");
     await expect(page.getByTestId("labels")).toContainText("depth 6");
   }
   await expect(white.getByTestId("request-review")).toBeVisible();

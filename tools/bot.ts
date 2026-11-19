@@ -19,7 +19,7 @@ import { connect, enginePipe, nowSec, RELAY, servicePoint, short } from "./node.
 
 const SKILL = Number(process.env.LUFT_BOT_SKILL ?? 20);
 const MOVE_MS = Number(process.env.LUFT_BOT_MS ?? 300);
-const NAME = process.env.LUFT_BOT_NAME ?? "Luftbot";
+const NAME = process.env.LUFT_BOT_NAME ?? "Nochess bot";
 const PRICE = Number(process.env.LUFT_BOT_PRICE ?? 0) * 1000;
 const modes = (process.env.LUFT_BOT_MODES ?? "rated,casual").split(",");
 const content = JSON.stringify({

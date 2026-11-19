@@ -11,7 +11,7 @@ node tools/zapmock.ts &
 mock=$!
 LUFT_BOT_LUD16=luftbot@$zap node tools/bot.ts &
 bot=$!
-LUFT_BOT_ID=probot LUFT_BOT_NAME="Luftbot Pro" LUFT_BOT_PRICE=21 LUFT_BOT_LUD16=luftbotpro@$zap node tools/bot.ts &
+LUFT_BOT_ID=probot LUFT_BOT_NAME="Nochess bot Pro" LUFT_BOT_PRICE=21 LUFT_BOT_LUD16=luftbotpro@$zap node tools/bot.ts &
 pro=$!
 LUFT_REVIEW_LUD16=reviewer@$zap node tools/reviewer.ts --serve &
 reviewer=$!

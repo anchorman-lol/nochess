@@ -26,38 +26,46 @@ export function Mark({ className, title }: { className?: string; title?: string 
   );
 }
 
+/** The loop drawn as a lowercase o, in hundredths of an em from the baseline. */
+const LOOP_O =
+  "M-4 19.5H0C20 19.5 52 10 52 -17C52 -35 42 -44 28 -44C14 -44 4 -35 4 -17C4 8 17 19.5 36 19.5H62";
+
 /**
- * The wordmark: the loop signs the name, and its tail runs on under the word as the line a
- * signature sits on. The name comes from the brand constant, so a new name needs no new artwork.
+ * The wordmark: the name's first o is the loop, signed onto the line the name sits on, and its
+ * tails run on as that line.
  */
 export function Wordmark({ className }: { className?: string }) {
+  const name = BRAND.name.toLowerCase();
+  const o = name.indexOf("o");
   return (
     <span
       className={cn(
-        "relative inline-flex items-end gap-[0.06em] font-extrabold leading-none tracking-[-0.03em]",
+        "relative inline-block pb-[0.12em] font-extrabold leading-none tracking-[-0.03em] whitespace-nowrap",
         className,
       )}
       aria-label={BRAND.name}
       role="img"
     >
-      <svg
-        viewBox="0 0 48 56"
-        aria-hidden="true"
-        className="h-[1.05em] w-auto flex-none text-brand"
-      >
-        <path
-          d="M4 46H12C24 46 38 31 38 19C38 12.5 34.5 9 29.5 9C24 9 20.5 14 20.5 22.5C20.5 36 27.5 46 40 46H48"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-      <span aria-hidden="true" className="relative pb-[0.12em] lowercase">
-        {BRAND.name}
-        <span className="absolute inset-x-0 -left-[0.1em] bottom-[0.035em] h-[0.12em] rounded-full bg-brand" />
+      <span aria-hidden="true">
+        {name.slice(0, o)}
+        <span className="relative inline-block h-0 w-[0.56em]">
+          <svg
+            viewBox="-6 -52 72 80"
+            className="absolute -bottom-[0.28em] -left-[0.06em] h-[0.8em] w-[0.72em] overflow-visible text-brand"
+          >
+            <path
+              d={LOOP_O}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="12"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </span>
+        {name.slice(o + 1)}
       </span>
+      <span className="absolute inset-x-0 bottom-[0.035em] h-[0.12em] rounded-full bg-brand" />
     </span>
   );
 }

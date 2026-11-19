@@ -192,19 +192,19 @@ const SIGNATURES = [
 export function Signatures({ names, count }: { names: [ReactNode, ReactNode]; count: number }) {
   const reduced = useReducedMotion();
   return (
-    <div className="grid gap-0.5 rounded-[0.6rem] border border-line px-3 pt-2 pb-2.5 text-[0.9rem]">
+    <div className="@container grid gap-0.5 rounded-[0.6rem] border border-line px-3 pt-2 pb-2.5 text-[0.9rem]">
       {names.map((name, i) => {
         const signed = i < count;
         return (
           <div
             key={i}
-            className="grid grid-cols-[3.2rem_1fr_auto] items-end gap-2 border-b border-line pt-1 pb-1"
+            className="grid grid-cols-[1fr_auto] items-end gap-x-2 border-b border-line pt-1 pb-1 @min-[16rem]:grid-cols-[3.2rem_1fr_auto]"
           >
             <span className="text-muted-foreground">{SIDES[i]}</span>
             <svg
               viewBox="0 0 150 56"
               aria-hidden="true"
-              className="h-8 w-auto justify-self-start text-brand"
+              className="order-last col-span-2 h-8 w-auto justify-self-start text-brand @min-[16rem]:order-none @min-[16rem]:col-span-1"
             >
               {signed && (
                 <m.path
