@@ -7,30 +7,45 @@ import { me, rate, who } from "../app/store.ts";
 import type { Rating } from "@nochess/core/game/glicko.ts";
 import { plural, provisional, shortKey } from "../lib/format.ts";
 
-/** A name, with the BOT tag for bot accounts and "(you)" for this browser's key. */
-export function Player({ pubkey, you = true }: { pubkey: string; you?: boolean }) {
+export const botTag =
+  "bot inline-flex h-[1.15rem] items-center rounded-[0.25rem] bg-foreground px-1 align-[0.1em] text-[0.66rem] font-bold tracking-[0.04em] text-background";
+
+/** A name, with the BOT tag for bot accounts (unless `tag` is off) and "(you)" for this browser's key. */
+export function Player({
+  pubkey,
+  you = true,
+  tag = true,
+}: {
+  pubkey: string;
+  you?: boolean;
+  tag?: boolean;
+}) {
   const { name, bot } = who(pubkey);
   return (
     <>
-      {bot && (
-        <b className="bot mr-1 inline-flex h-[1.15rem] items-center rounded-[0.25rem] bg-foreground px-1 align-[0.1em] text-[0.66rem] font-bold tracking-[0.04em] text-background">
-          BOT
-        </b>
-      )}
+      {tag && bot && <b className={cn(botTag, "mr-1")}>BOT</b>}
       {name || shortKey(pubkey)}
       {you && pubkey === me ? " (you)" : ""}
     </>
   );
 }
 
-export function PlayerLink({ pubkey, className }: { pubkey: string; className?: string }) {
+export function PlayerLink({
+  pubkey,
+  className,
+  tag,
+}: {
+  pubkey: string;
+  className?: string;
+  tag?: boolean;
+}) {
   return (
     <a
       href={`#/player/${pubkey}`}
       title={who(pubkey).name || shortKey(pubkey)}
       className={cn("truncate font-semibold hover:text-brand", className)}
     >
-      <Player pubkey={pubkey} />
+      <Player pubkey={pubkey} tag={tag} />
     </a>
   );
 }

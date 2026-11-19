@@ -127,9 +127,26 @@ test("landing, lobby, game, settings, zaps, a paid bot and an invoice render wit
   const paybotRow = botRows.filter({ hasText: "Paybot" });
   for (const width of [1440, 390]) {
     await challenger.setViewportSize({ width, height: 844 });
-    await paybotRow.getByTestId("bot-info").click();
+    await paybotRow.getByTestId("bot-info").press("Enter");
     await shoot("lobby-bot-record", "[data-testid=bot-record]", undefined, challenger, [width]);
     await challenger.keyboard.press("Escape");
+  }
+  const capped = watch(
+    await player(browser, undefined, { "nochess:settings": JSON.stringify({ newBotCap: 10 }) }),
+  );
+  await capped.goto("/#/play");
+  await capped.getByRole("tab", { name: "A bot" }).click();
+  for (const width of [1440, 390]) {
+    await capped.setViewportSize({ width, height: 844 });
+    await capped
+      .getByTestId("bots")
+      .locator("li", { hasText: "Paybot" })
+      .getByTestId("challenge-bot")
+      .press("Enter");
+    await shoot("lobby-bot-blocked", "[data-testid=challenge-blocked] a", undefined, capped, [
+      width,
+    ]);
+    await capped.keyboard.press("Escape");
   }
   await paybotRow.getByTestId("challenge-bot").click();
   await shoot("waiting", "[data-testid=join-countdown]", undefined, challenger);

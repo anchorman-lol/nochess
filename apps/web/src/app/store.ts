@@ -1222,11 +1222,13 @@ export function navigate() {
   if (anchor) reveal(anchor);
 }
 
-/** Scrolls to a section of the page once its lazily loaded route has rendered it. */
+/** Scrolls to a section or field once its lazily loaded route has rendered it; a field takes focus. */
 function reveal(id: string, tries = 0) {
   const section = document.getElementById(id);
-  if (section) section.scrollIntoView({ behavior: "smooth" });
-  else if (tries < 120) requestAnimationFrame(() => reveal(id, tries + 1));
+  if (section) {
+    section.scrollIntoView({ behavior: "smooth" });
+    section.focus({ preventScroll: true });
+  } else if (tries < 120) requestAnimationFrame(() => reveal(id, tries + 1));
 }
 
 /** `timed`: the relay advertises that it refuses moves stamped more than a few seconds off. */

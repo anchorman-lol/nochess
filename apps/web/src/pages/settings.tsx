@@ -224,9 +224,10 @@ export function SettingsPage() {
             min={0}
             step={1}
             defaultValue={settings.newBotCap}
+            id="bot-cap"
             data-testid="settings-bot-cap"
             aria-label="Most a new bot may charge, in sats"
-            className={cn(field, "w-28 text-right tabular-nums")}
+            className={cn(field, "w-28 scroll-mt-40 text-right tabular-nums")}
             onChange={(event) => {
               const sats = event.target.valueAsNumber;
               if (sats >= 0) set({ newBotCap: Math.floor(sats) });

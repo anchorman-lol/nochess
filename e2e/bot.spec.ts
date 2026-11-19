@@ -62,8 +62,9 @@ test("a player challenges the bot account and plays a rated game to the end", as
   const row = page.getByTestId("bots").locator("li", { hasText: "Nochess bot" });
   await expect(row.locator(".bot")).toHaveText("BOT");
   await expect(row.getByTestId("challenge-bot")).toHaveText("Challenge");
-  await row.getByTestId("bot-info").click();
+  await row.getByTestId("bot-info").hover();
   await expect(page.getByTestId("bot-record")).toContainText(/new bot|answered/);
+  await expect(page.getByTestId("bot-record")).toContainText("withdraws itself");
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("bot-record")).toBeHidden();
   await row.getByTestId("challenge-bot").click();
@@ -104,6 +105,37 @@ test("a bot that restarts mid-game still answers the moves of the games it sits 
   await page.getByTestId(`sq-${to}`).click();
   await expect(table).not.toHaveAttribute("data-turn", seat);
   await expect(table).toHaveAttribute("data-turn", seat, { timeout: 20_000 });
+});
+
+test("a new bot priced over the cap says why it is blocked and links to the cap", async ({
+  page,
+}) => {
+  await page.goto("/#/settings");
+  await page.getByTestId("settings-bot-cap").fill("10");
+  await page.goto("/#/play");
+  await page.getByRole("tab", { name: "A bot" }).click();
+  const challenge = page
+    .getByTestId("bots")
+    .locator("li", { hasText: "Paybot" })
+    .getByTestId("challenge-bot");
+  await expect(challenge).toBeDisabled();
+  await challenge.hover();
+  const why = page.getByTestId("challenge-blocked");
+  await expect(why).toHaveText(
+    "21 sats is over your 10-sat cap for bots without a record. Raise it in Settings.",
+  );
+  await page.mouse.move(0, 0);
+  await expect(why).toBeHidden();
+  await challenge.focus();
+  await page.keyboard.press("Enter");
+  await why.getByRole("link", { name: "Raise it in Settings" }).click();
+  await expect(page).toHaveURL(/#\/settings#bot-cap$/);
+  const cap = page.getByTestId("settings-bot-cap");
+  await expect(cap).toBeFocused();
+  await cap.fill("100");
+  await page.goto("/#/play");
+  await page.getByRole("tab", { name: "A bot" }).click();
+  await expect(challenge).toBeEnabled();
 });
 
 test("a bot with a price joins only once the challenge is paid, and then plays", async ({
