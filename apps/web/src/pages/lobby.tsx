@@ -16,7 +16,7 @@ import {
   Signed,
 } from "../components/common.tsx";
 import { Countdown } from "../components/clock.tsx";
-import { JesterRow, LiveRow, RankRow, ResultRow, SeekRow, ShowAll } from "../components/rows.tsx";
+import { LiveRow, RankRow, ResultRow, SeekRow, ShowAll } from "../components/rows.tsx";
 import { field } from "../components/table.tsx";
 import { plural, seekHref, shortKey, tcLabel, terms, TIME_CONTROLS } from "../lib/format.ts";
 
@@ -47,7 +47,6 @@ export function Lobby({ model }: { model: LobbyModel }) {
         <Seeks model={model} />
         <Live model={model} />
         <Results model={model} />
-        <Jester model={model} />
       </div>
       <aside className="grid min-w-0 content-start gap-9">
         <StartPanel model={model} />
@@ -275,25 +274,6 @@ function Results({ model }: { model: LobbyModel }) {
         {model.results.slice(0, FIRST_PAGE).map((verdict) => (
           <ResultRow key={verdict.addr} verdict={verdict} />
         ))}
-      </List>
-    </Section>
-  );
-}
-
-function Jester({ model }: { model: LobbyModel }) {
-  return (
-    <Section title="Elsewhere on Nostr">
-      <Hint className="mb-2" data-testid="jester-hint">
-        Games from other Nostr apps, such as Amethyst and nostr.blue, in their Jester format. They
-        have no clock and no rating, and Nochess only shows them: it checks each move's legality,
-        not its timing.
-      </Hint>
-      <List data-testid="jester">
-        {model.jester.length ? (
-          model.jester.slice(0, FIRST_PAGE).map((game) => <JesterRow key={game.id} game={game} />)
-        ) : (
-          <None>No game from other apps on these relays.</None>
-        )}
       </List>
     </Section>
   );

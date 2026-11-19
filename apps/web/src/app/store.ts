@@ -26,13 +26,7 @@ import {
 } from "@nochess/core/game/reliability.ts";
 import { type Game, type Seat } from "@nochess/core/game/replay.ts";
 import { openGame, Table } from "@nochess/core/game/table.ts";
-import {
-  JESTER_KIND,
-  type JesterGame,
-  jesterGames,
-  START_REF,
-} from "@nochess/core/jester/jester.ts";
-import { Net, timed } from "@nochess/core/nostr/net.ts";
+import { Net } from "@nochess/core/nostr/net.ts";
 import type { Filter } from "nostr-tools/filter";
 import { payUrl } from "@nochess/core/zap/lnurl.ts";
 import type { Zap } from "@nochess/core/zap/zap.ts";
@@ -49,7 +43,6 @@ import {
   followRelayHint,
   gameLink,
   importKey,
-  JESTER_RELAYS,
   loadSigner,
   parseGameLink,
   parsePubkey,
@@ -251,41 +244,6 @@ function recordOf(pubkey: string): Reliability {
 export const wallet = () =>
   DEV_WALLET && window.webln ? "the dev wallet (play money)" : walletName();
 export const nameOf = (pubkey: string) => who(pubkey).name || shortKey(pubkey);
-const profileName = (pubkey: string) => who(pubkey).name;
-
-/** Jester games from other clients, read from public relays once the lobby is first shown. */
-const jesterEvents = new Map<string, GameEvent>();
-type JesterFeed = { net: Net; games: JesterGame[]; starts: string; stopMoves: () => void };
-let jester: JesterFeed | undefined;
-let jesterTimer: ReturnType<typeof setTimeout> | undefined;
-function followJester() {
-  if (jester) return;
-  const net = new Net(JESTER_RELAYS, signer);
-  const feed: JesterFeed = (jester = { net, games: [], starts: "", stopMoves() {} });
-  const add = (event: GameEvent) => {
-    jesterEvents.set(event.id, event);
-    clearTimeout(jesterTimer);
-    jesterTimer = setTimeout(() => {
-      feed.games = jesterGames([...jesterEvents.values()]);
-      const starts = feed.games.map((game) => game.id).join();
-      if (starts !== feed.starts) {
-        feed.starts = starts;
-        feed.stopMoves();
-        feed.stopMoves = feed.net.subscribe(
-          [{ kinds: [JESTER_KIND], "#e": starts.split(","), limit: 2000 }],
-          add,
-        );
-        const players = feed.games.flatMap((game) => [game.white ?? [], game.black ?? []].flat());
-        feed.net.fetch([{ kinds: [KIND.profile], authors: [...new Set(players)] }]).then(
-          (events) => events.forEach(keep),
-          () => {},
-        );
-      }
-      paint();
-    }, 300);
-  };
-  feed.net.subscribe([{ kinds: [JESTER_KIND], "#e": [START_REF], limit: 40 }], add);
-}
 
 /** My newest kind 0, from the relay or what this page already has. */
 export async function ownProfile(): Promise<GameEvent | undefined> {
@@ -730,8 +688,6 @@ export type LobbyModel = {
   results: Verdict[];
   checking: boolean;
   doubted: number;
-  /** Jester games from other clients, unchecked, untimed and unrated. */
-  jester: JesterGame[];
   ranks: { pubkey: string; speed: Speed; rating: Rating }[];
   /** The time control of a quick seek on its way to the relay. */
   pending: string | null;
@@ -762,7 +718,6 @@ export type LobbyModel = {
 };
 function lobby(): Route {
   localStorage.setItem(WELCOMED, "1");
-  followJester();
   let tc = localStorage.getItem("nochess:tc") ?? "300+3";
   if (!speedOf(tc)) tc = "300+3";
   let rated = localStorage.getItem("nochess:rated") !== "0";
@@ -779,7 +734,7 @@ function lobby(): Route {
     if (mine.some((seek) => seek.tc === pending?.tc)) pending = null;
     for (const { gameId } of mine)
       if (!own.has(gameId))
-        own.set(gameId, new Table(net, me, gameId, localStorage, () => paint(), profileName));
+        own.set(gameId, new Table(net, me, gameId, localStorage, () => paint()));
     for (const [gameId, table] of own) {
       if (mine.some((seek) => seek.gameId === gameId)) continue;
       table.close();
@@ -824,7 +779,6 @@ function lobby(): Route {
         results: results.filter((verdict) => verdict.result !== "*"),
         checking,
         doubted,
-        jester: jester?.games ?? [],
         ranks: ranks(),
         bots: [...profiles.keys()].filter(isBot).map((pubkey) => {
           const sats = (who(pubkey).fee?.msat ?? 0) / 1000;
@@ -932,7 +886,7 @@ export type GameModel = {
   chat: { lines: ChatLine[]; error: string };
 };
 function game(host: string, gameId: string): Route {
-  const table = new Table(net, host, gameId, localStorage, () => paint(), profileName);
+  const table = new Table(net, host, gameId, localStorage, () => paint());
   let copied = false;
   let joining = false;
   let confirming = false;
@@ -1274,12 +1228,7 @@ function reveal(id: string, tries = 0) {
   else if (tries < 120) requestAnimationFrame(() => reveal(id, tries + 1));
 }
 
-/** `timed`: the relay advertises that it refuses moves stamped more than a few seconds off. */
-export const status = () => ({
-  online: net.online,
-  relay: net.url,
-  timed: timed(net.window, KIND.move),
-});
+export const status = () => ({ online: net.online, relay: net.url });
 
 /** The player's relays, and whether this tab follows a share link's instead. */
 export const relays = () => ({ list: savedRelays(), shared: sharedRelay() });

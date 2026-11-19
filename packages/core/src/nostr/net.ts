@@ -26,37 +26,6 @@ type Sub = {
 const OURS = /^(closed by caller|relay connection closed|<aborted>)/;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-const nowSec = () => Math.floor(Date.now() / 1000);
-
-/**
- * The `created_at` window a relay enforces, in seconds into the past and the future, from its
- * NIP-11 `limitation` as Sashité's self-timed relay profile writes it. `kinds` null covers every kind.
- */
-export type TimeWindow = { past: number; future: number; kinds: number[] | null };
-/** The most backdating a relay may allow and still be trusted with clocks, as in Sashité's client. */
-const TIMED_PAST = 5;
-
-export function timeWindowOf(info: unknown): TimeWindow | null {
-  const limits = (info as { limitation?: Record<string, unknown> } | null)?.limitation;
-  const past = limits?.created_at_lower_limit;
-  if (typeof past !== "number") return null;
-  const kinds = limits?.created_at_window_kinds;
-  return {
-    past,
-    future: Number(limits?.created_at_upper_limit) || Infinity,
-    kinds: Array.isArray(kinds) ? kinds.map(Number) : null,
-  };
-}
-const covers = (window: TimeWindow, kind: number) => !window.kinds || window.kinds.includes(kind);
-/** Whether the relay vouches for the `created_at` of this kind, so clocks built on it are honest. */
-export const timed = (window: TimeWindow | null, kind: number) =>
-  !!window && window.past <= TIMED_PAST && covers(window, kind);
-/** Whether the relay would refuse this event as too old, which a fresh signature fixes. */
-export const stale = (
-  window: TimeWindow | null,
-  event: { kind: number; created_at: number },
-  now: number,
-) => !!window && covers(window, event.kind) && event.created_at < now - window.past;
 
 /**
  * One relay connection that reconnects and reopens its subscriptions. Runs in browsers and Node.
@@ -65,8 +34,6 @@ export const stale = (
 export class Net {
   online = false;
   url: string;
-  /** The current relay's `created_at` window, from its NIP-11 document; null if it has none. */
-  window: TimeWindow | null = null;
   private urls: string[];
   readonly signer: Signer;
   private onStatus: () => void;
@@ -95,26 +62,10 @@ export class Net {
       this.relay = relay;
       for (const sub of this.subs) this.open(relay, sub);
       this.setOnline(true);
-      void this.readInfo(this.url);
     } catch {
       this.setOnline(false);
       await sleep(1500);
       return this.connect(attempt + 1);
-    }
-  }
-
-  private async readInfo(url: string) {
-    this.window = null;
-    try {
-      const response = await fetch(url.replace(/^ws/, "http"), {
-        headers: { Accept: "application/nostr+json" },
-        signal: AbortSignal.timeout(5000),
-      });
-      const window = timeWindowOf(await response.json());
-      if (url === this.url) this.window = window;
-      this.onStatus();
-    } catch {
-      // a relay without a NIP-11 document has no window
     }
   }
 
@@ -187,29 +138,5 @@ export class Net {
   close() {
     this.closed = true;
     this.relay?.close();
-  }
-}
-
-/**
- * Signs once and sends until the relay has it, so a retry never becomes a second event. Only
- * when the relay's window refuses the event as too old is the same template signed again with
- * the time now: same content, so for a move it is not a different move. A connection that knows
- * no window, such as a bot's shared one, just resends.
- */
-export async function deliver(
-  net: Pick<Net, "send"> & { window?: TimeWindow | null },
-  template: Template,
-  signer: Signer,
-  wait = 2000,
-): Promise<GameEvent | undefined> {
-  let event = await signer.sign(template);
-  for (let tries = 0; tries < 30; tries++) {
-    try {
-      return await net.send(event);
-    } catch {
-      if (stale(net.window ?? null, event, nowSec()))
-        event = await signer.sign({ ...template, created_at: nowSec() });
-      else await sleep(wait);
-    }
   }
 }
