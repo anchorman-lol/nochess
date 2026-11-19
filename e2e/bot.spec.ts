@@ -55,7 +55,7 @@ async function playOut(page: Page) {
 
 test("a player challenges the bot account and plays a rated game to the end", async ({ page }) => {
   test.setTimeout(240_000);
-  await page.goto("/");
+  await page.goto("/#/play");
   const row = page.getByTestId("bots").locator("li", { hasText: "Luftbot" });
   await expect(row.locator(".bot")).toHaveText("BOT");
   await expect(row.getByTestId("challenge-bot")).toHaveText("Challenge");
@@ -77,7 +77,7 @@ test("a bot with a price joins only once the challenge is paid, and then plays",
   page,
 }) => {
   test.setTimeout(240_000);
-  await page.goto("/");
+  await page.goto("/#/play");
   const row = page.getByTestId("bots").locator("li", { hasText: "Paybot" });
   await expect(row.getByTestId("challenge-bot")).toHaveText("Challenge · 21 sats");
   await page.getByTestId("tc").selectOption("1800+0");

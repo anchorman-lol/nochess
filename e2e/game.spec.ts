@@ -16,7 +16,7 @@ test("two players play a rated game to checkmate, watched, archived and audited"
   await expect(white.getByTestId("resign")).toBeVisible();
 
   const watcher = await player(browser);
-  await watcher.goto("/");
+  await watcher.goto("/#/play");
   await watcher.getByTestId("live").locator("a").first().click();
   await expect(watcher.getByTestId("status")).toContainText("You are watching");
   await expect(watcher.getByTestId("moves")).toContainText("e5");
@@ -120,8 +120,8 @@ test("a seek is withdrawn from the waiting screen, its lobby row or its tile, an
 }) => {
   const [host, guest] = [await player(browser), await player(browser)];
   const seen = (hash: string) => guest.locator(`a[href="${hash}"]`);
-  await host.goto("/");
-  await guest.goto("/");
+  await host.goto("/#/play");
+  await guest.goto("/#/play");
 
   await host.getByTestId("create").click();
   await expect(host.getByTestId("waiting")).toBeVisible();

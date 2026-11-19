@@ -3,11 +3,11 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createInterface } from "node:readline";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 import { generateSecretKey } from "nostr-tools/pure";
-import type { Pipe } from "../src/engine/uci.ts";
-import { auditAll } from "../src/game/archive.ts";
-import { KIND, profileOf, TOPIC } from "../src/game/events.ts";
-import { keySigner, Net } from "../src/nostr/net.ts";
-import { payPoint } from "../src/zap/lnurl.ts";
+import type { Pipe } from "../packages/core/src/engine/uci.ts";
+import { auditAll } from "../packages/core/src/game/archive.ts";
+import { KIND, profileOf, TOPIC } from "../packages/core/src/game/events.ts";
+import { keySigner, Net } from "../packages/core/src/nostr/net.ts";
+import { payPoint } from "../packages/core/src/zap/lnurl.ts";
 
 export const RELAY = process.env.LUFT_RELAY ?? "ws://127.0.0.1:7778";
 export const nowSec = () => Math.floor(Date.now() / 1000);

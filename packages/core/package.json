@@ -1,0 +1,26 @@
+{
+  "name": "@luft/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./src/*"
+  },
+  "scripts": {
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "@noble/curves": "catalog:",
+    "@noble/hashes": "catalog:",
+    "@scure/base": "catalog:",
+    "chess.js": "catalog:",
+    "light-bolt11-decoder": "3.2.0",
+    "nostr-tools": "catalog:"
+  },
+  "devDependencies": {
+    "@luft/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

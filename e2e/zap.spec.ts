@@ -64,7 +64,7 @@ test("a player is zapped from their profile, with a share for the platform that 
 test("someone without a lightning address cannot be zapped", async ({ browser }) => {
   const alice = await player(browser);
   const bob = await player(browser);
-  await alice.goto("/");
+  await alice.goto("/#/play");
   const href = await alice.locator('.you a[href^="#/player/"]').getAttribute("href");
   await bob.goto(`/${href}`);
   await expect(bob.getByTestId("profile")).toContainText("No lightning address");
@@ -94,7 +94,7 @@ test("without a wallet the invoice is shown as text and QR, and the zap complete
 test("a Nostr Wallet Connect wallet pays the zap", async ({ browser }) => {
   const pubkey = await receiveZaps(await player(browser), "dave");
   const bob = await player(browser, undefined, NO_WALLET);
-  await bob.goto("/");
+  await bob.goto("/#/play");
   await bob.locator("details.wallet summary").click();
   await expect(bob.getByTestId("wallet")).toContainText("No wallet connected");
   await bob
@@ -122,7 +122,7 @@ test("a watcher zaps both players of a game, and a player pays a reviewer for a 
   await move(white, "g2", "g4", [black]);
 
   const watcher = await player(browser);
-  await watcher.goto("/");
+  await watcher.goto("/#/play");
   await watcher.getByTestId("live").locator("a").first().click();
   await watcher.getByTestId("game-zaps").getByText("Zap both players").click();
   await zap(watcher, 101, 0, ["51 sats", "50 sats"]);

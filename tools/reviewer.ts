@@ -6,12 +6,12 @@
 // when a valid zap receipt of at least LUFT_REVIEW_PRICE (sats) names it, and its labels name
 // that receipt.
 import { Chess } from "chess.js";
-import { Engine, ENGINE } from "../src/engine/uci.ts";
-import { audit, type Verdict } from "../src/game/archive.ts";
-import { KIND, tagValue, TOPIC } from "../src/game/events.ts";
-import { labelFor, type Reviewed, summarise, THRESHOLD } from "../src/game/review.ts";
-import { owed } from "../src/zap/fee.ts";
-import { readZap, type Zap } from "../src/zap/zap.ts";
+import { Engine, ENGINE } from "../packages/core/src/engine/uci.ts";
+import { audit, type Verdict } from "../packages/core/src/game/archive.ts";
+import { KIND, tagValue, TOPIC } from "../packages/core/src/game/events.ts";
+import { labelFor, type Reviewed, summarise, THRESHOLD } from "../packages/core/src/game/review.ts";
+import { owed } from "../packages/core/src/zap/fee.ts";
+import { readZap, type Zap } from "../packages/core/src/zap/zap.ts";
 import { connect, enginePipe, finishedGames, nowSec, RELAY, servicePoint, short } from "./node.ts";
 
 const NAMESPACE = "luft/fairplay";

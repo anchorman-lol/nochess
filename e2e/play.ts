@@ -42,7 +42,7 @@ export async function player(
 
 /** Publishes a lightning address at the mock provider for this browser's key; returns the key. */
 export async function receiveZaps(page: Page, name: string): Promise<string> {
-  await page.goto("/");
+  await page.goto("/#/play");
   await page.locator("details.wallet summary").click();
   await page.getByTestId("lud16").fill(`${name}@${ZAP_HOST}`);
   await page.getByTestId("lud16").press("Enter");
@@ -65,12 +65,12 @@ export const paid = async (page: Page, count: number) =>
 
 /** The host opens a seek, the guest finds it on the home page and joins. Returns [White, Black]. */
 export async function sitDown(host: Page, guest: Page, rated = true): Promise<[Page, Page]> {
-  await host.goto("/");
+  await host.goto("/#/play");
   await expect(host.getByTestId("relay-status")).toHaveText("relay connected");
   await host.getByTestId("rated").setChecked(rated);
   await host.getByTestId("create").click();
   await expect(host.getByTestId("waiting")).toBeVisible();
-  await guest.goto("/");
+  await guest.goto("/#/play");
   await guest.locator(`a[href="${new URL(host.url()).hash}"]`).click();
   await guest.getByTestId("join").click();
   for (const page of [host, guest]) await expect(page.getByTestId("table")).toBeVisible();

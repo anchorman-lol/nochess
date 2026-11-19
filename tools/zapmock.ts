@@ -9,9 +9,9 @@ import * as nip04 from "nostr-tools/nip04";
 import * as nip44 from "nostr-tools/nip44";
 import { makeZapReceipt, validateZapRequest } from "nostr-tools/nip57";
 import { generateSecretKey } from "nostr-tools/pure";
-import { hashHex, tagValue } from "../src/game/events.ts";
-import { keySigner, Net } from "../src/nostr/net.ts";
-import { fakeInvoice } from "../src/zap/bolt11.ts";
+import { hashHex, tagValue } from "../packages/core/src/game/events.ts";
+import { keySigner, Net } from "../packages/core/src/nostr/net.ts";
+import { fakeInvoice } from "../packages/core/src/zap/bolt11.ts";
 import { nowSec, RELAY, secretOf } from "./node.ts";
 
 const PORT = Number(process.env.LUFT_ZAP_PORT ?? 7779);

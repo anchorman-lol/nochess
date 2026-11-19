@@ -1,12 +1,20 @@
 // The bot account: a key of its own that accepts challenges over the relay and answers with
 // Stockfish. Its games are ordinary games, so they are archived, audited and rated like any other.
 // With LUFT_BOT_PRICE (sats) it joins a challenge only once a valid zap receipt pays for it.
-import { Engine, ENGINE } from "../src/engine/uci.ts";
-import { address, covers, KIND, profileOf, tagValue, termsOf, TOPIC } from "../src/game/events.ts";
-import { turnOf } from "../src/game/replay.ts";
-import { Table } from "../src/game/table.ts";
-import { payment } from "../src/zap/fee.ts";
-import { readZap, type Zap } from "../src/zap/zap.ts";
+import { Engine, ENGINE } from "../packages/core/src/engine/uci.ts";
+import {
+  address,
+  covers,
+  KIND,
+  profileOf,
+  tagValue,
+  termsOf,
+  TOPIC,
+} from "../packages/core/src/game/events.ts";
+import { turnOf } from "../packages/core/src/game/replay.ts";
+import { Table } from "../packages/core/src/game/table.ts";
+import { payment } from "../packages/core/src/zap/fee.ts";
+import { readZap, type Zap } from "../packages/core/src/zap/zap.ts";
 import { connect, enginePipe, nowSec, RELAY, servicePoint, short } from "./node.ts";
 
 const SKILL = Number(process.env.LUFT_BOT_SKILL ?? 20);

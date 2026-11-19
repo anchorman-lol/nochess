@@ -21,4 +21,4 @@ trap 'kill $relay $mock $bot $pro $reviewer $rater 2>/dev/null' EXIT INT TERM
 # The platform's share goes to this address; the key only names it in the zap, nobody signs with it.
 VITE_RATERS=$(node tools/rater.ts --pubkey) VITE_DEV_WALLET=http://$zap VITE_PLATFORM_LUD16=luft@$zap \
   VITE_PLATFORM_PUBKEY=193e245d172bfe0b717e47c6008bfb8611d47356c89779b86daafe8b50655ec9 \
-  pnpm exec vite --port 5174 --strictPort "$@"
+  pnpm --filter @luft/web exec vite --port "${LUFT_WEB_PORT:-5174}" --strictPort "$@"

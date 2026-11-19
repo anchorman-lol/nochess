@@ -29,7 +29,7 @@ export default defineConfig({
       reuseExistingServer: false,
     },
     {
-      command: `pnpm exec vite --port ${WEB_PORT} --strictPort`,
+      command: `pnpm --filter @luft/web exec vite --port ${WEB_PORT} --strictPort`,
       url: `http://127.0.0.1:${WEB_PORT}`,
       env: {
         VITE_RELAY_URL: RELAY,

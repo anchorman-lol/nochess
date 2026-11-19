@@ -1,0 +1,9 @@
+{
+  "extends": "@luft/tsconfig/base.json",
+  "compilerOptions": {
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "paths": { "@luft/ui/*": ["./src/*"] }
+  },
+  "include": ["src"]
+}

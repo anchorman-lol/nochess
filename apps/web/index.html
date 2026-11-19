@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chess you sign yourself</title>
+    <link rel="icon" href="/favicon.svg" />
+    <link
+      rel="preload"
+      href="/fonts/AtkinsonHyperlegibleNext.ttf"
+      as="font"
+      type="font/ttf"
+      crossorigin
+    />
+    <script>
+      try {
+        const saved = JSON.parse(localStorage.getItem("luft:settings") ?? "{}");
+        const theme = saved.theme ?? localStorage.getItem("luft:theme") ?? "system";
+        document.documentElement.dataset.theme =
+          theme === "system"
+            ? matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light"
+            : theme;
+      } catch {}
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

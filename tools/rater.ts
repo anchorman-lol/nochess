@@ -3,8 +3,8 @@
 // covers, so anyone can rerun it. `--dry` prints only, `--watch` rates again every
 // LUFT_RATE_EVERY seconds (default 30), `--pubkey` prints the rater's key for clients to trust.
 import { getPublicKey } from "nostr-tools/pure";
-import { assertion, coverOf } from "../src/game/assertion.ts";
-import { PROVISIONAL_RD, ratings } from "../src/game/glicko.ts";
+import { assertion, coverOf } from "../packages/core/src/game/assertion.ts";
+import { PROVISIONAL_RD, ratings } from "../packages/core/src/game/glicko.ts";
 import { connect, finishedGames, nowSec, secretOf, short } from "./node.ts";
 
 if (process.argv.includes("--pubkey")) {

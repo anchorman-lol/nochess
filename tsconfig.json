@@ -1,18 +1,5 @@
 {
-  "compilerOptions": {
-    "target": "ES2024",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "lib": ["ES2024", "ESNext.Collection", "DOM", "DOM.Iterable"],
-    "types": ["vite/client", "node"],
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noEmit": true,
-    "skipLibCheck": true,
-    "isolatedModules": true,
-    "allowImportingTsExtensions": true,
-    "erasableSyntaxOnly": true
-  },
-  "include": ["src", "tools", "e2e", "*.config.ts"]
+  "extends": "@luft/tsconfig/base.json",
+  "compilerOptions": { "lib": ["ES2024", "ESNext.Collection", "DOM"], "types": ["node"] },
+  "include": ["tools", "e2e", "*.config.ts"]
 }

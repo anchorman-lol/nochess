@@ -1,0 +1,30 @@
+{
+  "name": "@luft/ui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./globals.css": "./src/styles/globals.css",
+    "./components/*": "./src/components/*.tsx",
+    "./brand": "./src/brand.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "@base-ui/react": "catalog:",
+    "class-variance-authority": "catalog:",
+    "cn": "0.5.2",
+    "lucide-react": "1.75.0",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "tw-animate-css": "catalog:"
+  },
+  "devDependencies": {
+    "@luft/tsconfig": "workspace:*",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:"
+  }
+}

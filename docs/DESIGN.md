@@ -1,6 +1,6 @@
-# Luft: design
+# Mateproof: design
 
-Luft is chess between Nostr keys. There is no game server: every action is a signed event on a relay, and `replay()` in `src/game/replay.ts` rebuilds a game from whatever events it is given. The same events give the same game for everyone, so that function is the only judge. The wider proposal (prior art, money, phases) is a separate document; this file is what the code does.
+Mateproof is chess between Nostr keys. There is no game server: every action is a signed event on a relay, and `replay()` in `packages/core/src/game/replay.ts` rebuilds a game from whatever events it is given. The same events give the same game for everyone, so that function is the only judge. The wider proposal (prior art, money, phases) is a separate document; this file is what the code does.
 
 ## Events
 
@@ -11,10 +11,11 @@ Luft is chess between Nostr keys. There is no game server: every action is a sig
 | 1641  | Move                                                   | session key                        | `a`, `ply`, `e` the previous move (the join for the first), `fen` after the move, in exactly that order. Content: the move in SAN.                                                                                                                                             |
 | 1642  | Action                                                 | session key                        | `a`, `ply` (moves played when it was taken), `action`: `resign`, `abort`, `draw-offer`, `draw-accept`, `claim-time`                                                                                                                                                            |
 | 64    | Archive (NIP-64)                                       | each player                        | Content: PGN. `a`, `p` both players, `t`, `result`, `alt`, `proof`                                                                                                                                                                                                             |
-| 0     | Profile                                                | anyone                             | `t` `luft` when Luft wrote it. Content: `lud16` or `lud06` to receive zaps, `"bot": true` (NIP-24) for a bot, and for a bot or reviewer a `luft` block with its price (see Zaps and fees).                                                                                     |
+| 0     | Profile                                                | anyone                             | `t` `luft` when Mateproof wrote it. Content: `lud16` or `lud06` to receive zaps, `"bot": true` (NIP-24) for a bot, and for a bot or reviewer a `luft` block with its price (see Zaps and fees).                                                                                |
 | 1985  | Fair-play label (NIP-32)                               | reviewer                           | `L` `luft/fairplay`, `l` `analysed` or `review-suggested`, `a` game, `p` player, and `e` the zap receipt when the review was paid for. Content: the numbers as JSON.                                                                                                           |
 | 9734  | Zap request (NIP-57)                                   | payer                              | `p` recipient, `amount`, `relays`, `lnurl`, and `a` when the zap is for a game. Sent to the recipient's LNURL callback, never to a relay.                                                                                                                                      |
 | 9735  | Zap receipt (NIP-57)                                   | the recipient's Lightning provider | `p`, `a`, `bolt11`, `description` (the zap request)                                                                                                                                                                                                                            |
+| 9     | Chat line (NIP-C7)                                     | the writer's own key               | `a` game, `t` `luft`, `room` `players` or `spectators`. Content: the line.                                                                                                                                                                                                     |
 | 30382 | Rating assertion (NIP-85)                              | rater                              | `d` and `p` the player, `rating:<speed>`, `rd:<speed>`, `games:<speed>`, and `covers`: the count of rated games it rests on, the hash of their addresses and when the last one ended                                                                                           |
 
 The kind numbers are placeholders next to 64 and need checking against the registry before anyone else builds on them.
@@ -29,7 +30,7 @@ The kind numbers are placeholders next to 64 and need checking against the regis
 - **Equivocation.** Two different legal moves for the same turn, signed by the same key, lose the game.
 - **Actions.** Abort is possible until both have moved, and a resignation before that counts as an abort. A draw needs an offer the other side accepts before it has moved twice. An ending whose author has a later move is ignored, so nobody can write "I aborted at move 1" at move 40.
 - **Automatic draws.** Stalemate, insufficient material, the fifty-move rule and threefold repetition end the game on their own. Lichess makes the last two a claim; this is a known difference.
-- **Duties.** A player's client admits a fitting join (host, from the waiting page or the lobby), claims a flag one second after it fell, and publishes the archive. `Table` in `src/game/table.ts` does this for the browser and the bot alike.
+- **Duties.** A player's client admits a fitting join (host, from the waiting page or the lobby), claims a flag one second after it fell, and publishes the archive. `Table` in `packages/core/src/game/table.ts` does this for the browser and the bot alike.
 
 ## Clock
 
@@ -41,9 +42,9 @@ This clock is only as honest as `created_at`. On a relay that accepts any timest
 
 ### What the relay module must do
 
-Working name `kind_time_window`, for anchorman-relay. Not built yet; Luft runs without it on the local relay.
+Working name `kind_time_window`, for anchorman-relay. Not built yet; Mateproof runs without it on the local relay.
 
-1. Configuration: a list of kinds and a window in seconds. For Luft: `{ "kinds": [1641, 1642], "window_secs": 2 }`.
+1. Configuration: a list of kinds and a window in seconds. For Mateproof: `{ "kinds": [1641, 1642], "window_secs": 2 }`.
 2. On EVENT with a listed kind: reject it when `abs(created_at - relay_now) > window_secs`, with `["OK", id, false, "invalid: created_at outside the window for this kind"]`. The relay's own clock is the reference.
 3. Leave every other kind alone. The global `created_at_lower_limit` stays 0, because NIP-59 gift wraps are backdated on purpose.
 4. Advertise it in the NIP-11 document, so a client or auditor can tell the rule is on before trusting a clock: for example `"limitation": { "created_at_window": { "kinds": [1641, 1642], "seconds": 2 } }`.
@@ -55,7 +56,7 @@ What stays unsolved by this level: a third party reading the events elsewhere ha
 
 ## Archive and audit
 
-A finished game is published by each player as a kind 64 note. Its `proof` tag holds the game and join events, one `[created_at, signature]` pair per move, and any other event the result rests on (the resignation, the draw offer and accept, the time claim). Move events are canonical, so anyone rebuilds each one from the PGN and that pair, checks its signature, and replays the game. `prove()` and `audit()` in `src/game/archive.ts` do this; the results list on the home page shows only games that pass.
+A finished game is published by each player as a kind 64 note. Its `proof` tag holds the game and join events, one `[created_at, signature]` pair per move, and any other event the result rests on (the resignation, the draw offer and accept, the time claim). Move events are canonical, so anyone rebuilds each one from the PGN and that pair, checks its signature, and replays the game. `prove()` and `audit()` in `packages/core/src/game/archive.ts` do this; the results list on the home page shows only games that pass.
 
 All archives for one game are replayed together. A player cannot hide a lost game behind an earlier ending of their own, because the opponent's archive carries the later moves and the "author moved on" rule voids the earlier ending.
 
@@ -69,9 +70,9 @@ Known gap: a false time claim, with a timestamp in the future on a relay without
 
 ## Ratings
 
-`src/game/glicko.ts` is Glicko-2 with Lichess's settings (1500, deviation 500, volatility 0.09, tau 0.75, deviation floor 45, provisional from 110), one rating period per game, one rating per speed class.
+`packages/core/src/game/glicko.ts` is Glicko-2 with Lichess's settings (1500, deviation 500, volatility 0.09, tau 0.75, deviation floor 45, provisional from 110), one rating period per game, one rating per speed class.
 
-`tools/rater.ts` computes it over every audited rated game on the relay and publishes one assertion per player. The client shows the assertions of the raters it trusts (`VITE_RATERS`, hex keys separated by commas; in `pnpm dev` the dev rater, which runs with `--watch`) on cards, in the lobby and on the leaderboard, and computes ratings itself, from the audited games it has, for a player no trusted rater has rated and when no rater is configured (`withTrusted()` in `src/game/assertion.ts`).
+`tools/rater.ts` computes it over every audited rated game on the relay and publishes one assertion per player. The client shows the assertions of the raters it trusts (`VITE_RATERS`, hex keys separated by commas; in `pnpm dev` the dev rater, which runs with `--watch`) on cards, in the lobby and on the leaderboard, and computes ratings itself, from the audited games it has, for a player no trusted rater has rated and when no rater is configured (`withTrusted()` in `packages/core/src/game/assertion.ts`).
 
 An assertion is checkable because it commits to its input: `covers` holds the number of rated games, the SHA-256 of their addresses in rating order, and the end time of the last one. "Verify" on a player's page fetches and audits every archive on the relay, takes the rated games up to that time, and `verify()` compares: if their hash is the rater's, it recomputes the player's ratings and reports "verified" or the numbers that differ; if not, it says how many games each side has. The commitment covers all games, since one player's rating depends on their opponents' histories, so the rater republishes every player when a game is added.
 
@@ -81,27 +82,37 @@ Not done: deviation growing with inactivity, Sybil defences, a way to pick rater
 
 `tools/reviewer.ts` is the first automated reviewer. Per game and player it counts moves after the player's tenth that were not forced, in positions within six pawns of equal, and compares them with Stockfish at depth 10. It publishes `review-suggested` only with at least 25 such positions, at least 85% first-choice agreement and at most 12 centipawns average loss; otherwise `analysed`. The label carries the numbers and each move's engine choice, so anyone can rerun it. It never says more than "a human should look", it skips declared bots, and it does not label a game twice.
 
+## Chat
+
+Every game has a chat in two rooms, as kind 9 (NIP-C7) lines signed by the writer's own key, with the game's address in `a` and the room in a `room` tag. The rules are pure functions in `apps/web/src/chat/rules.ts`.
+
+- **Players' room.** Only the two players write here. During the game they have quick phrases (Hello, Good luck, Good game, Well played, Thanks) and no free text, so nothing can be said that a phrase can't; after it ends they write freely. Spectators read it but don't write.
+- **Spectators' room.** Anyone else writes freely. Players don't see it until the game is over, so nobody can pass them moves.
+- **Reading enforces the same rules.** A client shows a players'-room line only if a player wrote it and it is a phrase or was written after the end, so another client can't sneak free text into a running game.
+- **Limits.** Lines are at most 280 characters, at least two seconds apart and at most five in 30 seconds. These are client-side only; the relay doesn't enforce them yet.
+- **Muting** a key hides its lines in this browser and is undone from Settings, where chat can also be switched off altogether. Nothing is published.
+
 ## Zaps and fees
 
-Money in Luft is a tip or a fee for a service, paid over Lightning as a NIP-57 zap from the payer's wallet to the recipient's. Luft holds nothing and passes nothing on.
+Money in Mateproof is a tip or a fee for a service, paid over Lightning as a NIP-57 zap from the payer's wallet to the recipient's. Mateproof holds nothing and passes nothing on.
 
 **No stakes, wagers or prize pools.** Nothing anyone pays or receives is contingent on a game's result. A bot's fee is owed for the game whoever wins, a reviewer's fee is the same whatever its label says, and "zap the winner" is a gift from a spectator after the fact that nobody was promised. Two players putting money on a game, an entry fee that funds a prize, or a pot the client or a bot holds are all on the other side of this line and are not built.
 
 ### A zap
 
 1. The client reads the recipient's `lud16` (or `lud06`) from their kind 0 and fetches the LNURL-pay endpoint. It must say `allowsNostr` and name a `nostrPubkey`.
-2. It signs a kind 9734 zap request (`src/zap/zap.ts`) with the recipient, the amount, this relay and, for a game, its address in `a`, and sends it to the endpoint's callback.
-3. It checks the invoice that comes back: the amount asked for, and a description hash that is the hash of the request. Anything else is refused before a wallet sees it (`src/zap/lnurl.ts`).
-4. The invoice is paid by WebLN if the browser has it, else through the Nostr Wallet Connect link the user stored (NIP-47 `pay_invoice`, NIP-44 when the wallet advertises it, else NIP-04), else it is shown as text and a QR code to pay with any wallet (`src/zap/wallet.ts`).
+2. It signs a kind 9734 zap request (`packages/core/src/zap/zap.ts`) with the recipient, the amount, this relay and, for a game, its address in `a`, and sends it to the endpoint's callback.
+3. It checks the invoice that comes back: the amount asked for, and a description hash that is the hash of the request. Anything else is refused before a wallet sees it (`packages/core/src/zap/lnurl.ts`).
+4. The invoice is paid by WebLN if the browser has it, else through the Nostr Wallet Connect link the user stored (NIP-47 `pay_invoice`, NIP-44 when the wallet advertises it, else NIP-04), else it is shown as text and a QR code to pay with any wallet (`apps/web/src/zap/wallet.ts`).
 5. The provider publishes the kind 9735 receipt to the relay. The zap counts when that receipt arrives and holds up.
 
 `readZap()` is the one check for a receipt, used by the browser, the bot and the reviewer. It follows NIP-57 appendix F: the receipt is signed by the `nostrPubkey` the recipient's own endpoint names, its `description` is a valid signed zap request, the invoice's description hash is the hash of that request and its amount is the request's, and the receipt's `p` and `a` are the request's. A receipt signed by any other key is a claim. Nobody's word is taken for a payment, including the paying client's.
 
-Zaps show on the player cards of a game (sats zapped for that game), under the board, and on a player's page (`#/player/<pubkey>`). A player with a key kept in the browser sets their lightning address on the home page, which publishes a kind 0 on this relay. A player signing with an extension keeps their own profile: Luft reads it from this relay and does not write one.
+Zaps show on the player cards of a game (sats zapped for that game), under the board, and on a player's page (`#/player/<pubkey>`). A player with a key kept in the browser sets their lightning address on the home page, which publishes a kind 0 on this relay. A player signing with an extension keeps their own profile: Mateproof reads it from this relay and does not write one.
 
 ### The platform's share
 
-NIP-57 appendix G splits a zap by weight and leaves the client to send one zap per receiver, so a split is several invoices. `split()` computes it: the platform's weight is the share, the recipients divide the rest equally, amounts are whole sats and the remainder goes to the first recipient. Each line gets its own zap request, invoice and receipt, and the dialog lists them before anything is paid: zapping 200 sats at 5% shows 190 for the player and 10 for Luft. The share defaults to 5%, is the payer's to change, and at 0 (or when it rounds to under one sat) there is one invoice and Luft gets nothing. Luft's events carry no `zap` tags: a tag is set by an event's author, and this share is the payer's choice.
+NIP-57 appendix G splits a zap by weight and leaves the client to send one zap per receiver, so a split is several invoices. `split()` computes it: the platform's weight is the share, the recipients divide the rest equally, amounts are whole sats and the remainder goes to the first recipient. Each line gets its own zap request, invoice and receipt, and the dialog lists them before anything is paid: zapping 200 sats at 5% shows 190 for the player and 10 for Mateproof. The share defaults to 5%, is the payer's to change, and at 0 (or when it rounds to under one sat) there is one invoice and Mateproof gets nothing. Mateproof's events carry no `zap` tags: a tag is set by an event's author, and this share is the payer's choice.
 
 The share goes to `VITE_PLATFORM_LUD16`, zapped as `VITE_PLATFORM_PUBKEY`. With either unset there is no share and no mention of one. Fees are not split: a bot or reviewer gets its whole price.
 
@@ -109,7 +120,7 @@ The share goes to `VITE_PLATFORM_LUD16`, zapped as `VITE_PLATFORM_PUBKEY`. With 
 
 A bot's kind 0 carries `"luft": { "role": "bot", "price_msat": 21000, "speeds": ["blitz", "rapid"], "rated": true, "casual": true }`. `speeds`, `rated` and `casual` say which games it takes and default to all; a bot without the block, or with a price of 0, is free and joins at once as before. The client shows the price on the challenge button and disables it for terms the bot doesn't cover.
 
-The challenger opens the challenge as usual and zaps the bot at least its price with the challenge's address in `a`. The bot joins only when `payment()` (`src/zap/fee.ts`) finds a receipt that passes `readZap()` against the bot's own provider, is for at least the price and names that game. Its join names the receipt in an `e` tag, which spends it: anyone can see which payment bought which game, and the bot rebuilds what is spent from its own joins after a restart. A challenge nobody pays for expires like any seek.
+The challenger opens the challenge as usual and zaps the bot at least its price with the challenge's address in `a`. The bot joins only when `payment()` (`packages/core/src/zap/fee.ts`) finds a receipt that passes `readZap()` against the bot's own provider, is for at least the price and names that game. Its join names the receipt in an `e` tag, which spends it: anyone can see which payment bought which game, and the bot rebuilds what is spent from its own joins after a restart. A challenge nobody pays for expires like any seek.
 
 Refunds: there are none, and the client says so before the payment. The rule is that the fee is spent when the bot joins. If the bot never joins (it was down, or the challenge expired first), the receipt is unspent and admits the same player's next challenge to that bot without a new payment. Once the bot has joined, the fee stays spent whatever happens: if the player aborts or leaves, and also if the bot crashes, in which case it loses on time and the player has the win. The bot itself never aborts.
 
@@ -121,13 +132,13 @@ The free tier stays. `pnpm review` without `--serve` is the default reviewer's p
 
 ### Without real money
 
-`tools/zapmock.ts` is a Lightning provider for development and the tests. It serves LNURL-pay for any name at its host, issues well-formed BOLT11 invoices on regtest (`lnbcrt…`, which no wallet will pay), and when told an invoice is paid, by `POST /pay` or by NIP-47 `pay_invoice`, publishes the NIP-57 receipt signed by the `nostrPubkey` it advertises. It publishes only to its own relay. In development the app loads a WebLN wallet of play money (`src/zap/devwallet.ts`, only when `VITE_DEV_WALLET` is set) that pays by calling `/pay`. Nothing else in the client or the services knows the mock exists: they see a lightning address, an LNURL endpoint, a WebLN provider and receipts.
+`tools/zapmock.ts` is a Lightning provider for development and the tests. It serves LNURL-pay for any name at its host, issues well-formed BOLT11 invoices on regtest (`lnbcrt…`, which no wallet will pay), and when told an invoice is paid, by `POST /pay` or by NIP-47 `pay_invoice`, publishes the NIP-57 receipt signed by the `nostrPubkey` it advertises. It publishes only to its own relay. In development the app loads a WebLN wallet of play money (`apps/web/src/zap/devwallet.ts`, only when `VITE_DEV_WALLET` is set) that pays by calling `/pay`. Nothing else in the client or the services knows the mock exists: they see a lightning address, an LNURL endpoint, a WebLN provider and receipts.
 
 Real Lightning needs no code change: leave `VITE_DEV_WALLET` unset, give the bot, the reviewer and the platform lightning addresses at a provider that supports NIP-57, and don't start the mock.
 
 ### Known gaps
 
-- The provider must publish its receipt to Luft's relay, which the zap request asks for. A provider that can't reach the relay (a local one, for example) leaves the zap paid and unseen.
+- The provider must publish its receipt to Mateproof's relay, which the zap request asks for. A provider that can't reach the relay (a local one, for example) leaves the zap paid and unseen.
 - A player who signs with an extension can be zapped only if their kind 0 is on this relay.
 - To check a receipt the browser fetches the recipient's LNURL endpoint, so viewing a zapped player's game tells their provider the viewer's address.
 - Zap comments, anonymous zaps and zaps for a single move are not built.

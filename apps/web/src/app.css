@@ -1,0 +1,167 @@
+@import "@luft/ui/globals.css";
+
+@source ".";
+
+/* The game: board as tall as the window, facts and chat left, the rail right. */
+.game {
+  --rail: 21.5rem;
+  --slip: 15rem;
+  --gap: 1.25rem;
+  --bs: min(100dvh - 3.25rem - 2.5rem, 100vw - var(--rail) - var(--slip) - 2 * var(--gap) - 2.5rem);
+  grid-template-columns: var(--slip) var(--bs) var(--rail);
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-areas: "slip board opp" "slip board sheet" "slip board acts" "slip board me";
+  justify-content: center;
+  height: var(--bs);
+}
+@media (max-width: 1180px) {
+  .game {
+    --bs: min(100dvh - 3.25rem - 2.5rem, 100vw - var(--rail) - var(--gap) - 2.5rem);
+    grid-template-columns: var(--bs) var(--rail);
+    grid-template-rows: auto minmax(12rem, 1fr) auto auto auto;
+    grid-template-areas: "board opp" "board sheet" "board acts" "board me" "slip slip";
+    height: auto;
+  }
+  .game > [class*="grid-area:board"] {
+    height: var(--bs);
+  }
+  .game > aside {
+    padding-top: 1.5rem;
+    max-height: 26rem;
+  }
+}
+@media (max-width: 767px) {
+  .game {
+    --bs: 100vw;
+    grid-template-columns: 100%;
+    grid-template-rows: none;
+    grid-template-areas: "opp" "board" "me" "sheet" "acts" "slip";
+  }
+  .game > [class*="grid-area:board"] {
+    height: auto;
+  }
+  .game > aside {
+    max-height: none;
+  }
+  .game .board {
+    border-radius: 0;
+  }
+}
+
+/* The board: squares from the board theme's tokens, hints drawn over them. */
+.board {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  aspect-ratio: 1;
+  width: 100%;
+  border-radius: 0.3rem;
+  overflow: hidden;
+  user-select: none;
+  touch-action: none;
+  container-type: inline-size;
+}
+.board[data-mini] {
+  border-radius: 0.2rem;
+}
+.sq {
+  position: relative;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 0;
+  background: var(--sq-light);
+}
+.sq.dark {
+  background: var(--sq-dark);
+}
+[data-board="diagram"] .board {
+  border: 1.5px solid var(--foreground);
+  border-radius: 0;
+}
+[data-board="diagram"][data-theme="dark"] .board {
+  border-color: oklch(0.87 0.006 258);
+}
+[data-board="diagram"] .sq.dark {
+  background-image: repeating-linear-gradient(135deg, var(--hatch) 0 1px, transparent 1px 0.9cqw);
+}
+.sq.last::before,
+.sq.sel::before,
+.sq.pre::before,
+.sq[data-over]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--sq-last);
+}
+.sq.sel::before {
+  background: var(--sq-sel);
+}
+.sq.pre::before {
+  background: var(--sq-pre);
+}
+.sq[data-over]::before {
+  background: var(--sq-over);
+}
+.sq.check::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle,
+    oklch(0.6 0.23 27 / 0.85) 0%,
+    oklch(0.6 0.23 27 / 0.45) 45%,
+    transparent 72%
+  );
+}
+.sq.target::after {
+  content: "";
+  position: absolute;
+  inset: 36%;
+  border-radius: 50%;
+  background: var(--dot);
+  pointer-events: none;
+}
+.sq.target.capture::after {
+  inset: 3%;
+  background: none;
+  border: 0.55cqw solid var(--dot);
+}
+.sq .piece {
+  position: absolute;
+  inset: 3%;
+  width: 94%;
+  height: 94%;
+  pointer-events: none;
+}
+.sq .piece[data-lifted] {
+  opacity: 0.3;
+}
+[data-pieces="celtic"] .sq .piece {
+  inset: 1%;
+  width: 98%;
+  height: 98%;
+}
+.coord {
+  position: absolute;
+  font: 700 1.9cqw/1 var(--font-sans);
+  color: var(--sq-coord-on-light);
+  pointer-events: none;
+}
+.sq.light .coord {
+  color: var(--sq-coord-on-light);
+}
+.sq.dark .coord {
+  color: var(--sq-coord-on-dark);
+}
+[data-board="diagram"] .sq.dark .coord {
+  background: var(--sq-light);
+  padding: 0.1em;
+}
+.coord.rank {
+  top: 4%;
+  left: 5%;
+}
+.coord.file {
+  bottom: 4%;
+  right: 6%;
+}

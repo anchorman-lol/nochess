@@ -1,0 +1,5 @@
+{
+  "extends": "@luft/tsconfig/base.json",
+  "compilerOptions": { "lib": ["ES2024", "ESNext.Collection", "DOM"], "types": ["node"] },
+  "include": ["src", "*.config.ts"]
+}

@@ -1,0 +1,196 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@source "../";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+@custom-variant data-horizontal (&[data-orientation="horizontal"]);
+@custom-variant data-vertical (&[data-orientation="vertical"]);
+
+@font-face {
+  font-family: "Atkinson Next";
+  src: url("/fonts/AtkinsonHyperlegibleNext.ttf") format("truetype");
+  font-weight: 200 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Atkinson Mono";
+  src: url("/fonts/AtkinsonHyperlegibleMono.ttf") format("truetype");
+  font-weight: 200 800;
+  font-display: swap;
+}
+
+/* Brand tokens: white page, ballpoint blue for actions and everything signed, amber only for zaps. */
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.22 0.03 265);
+  --surface: oklch(0.975 0.004 258);
+  --sunk: oklch(0.95 0.007 258);
+  --line: oklch(0.895 0.01 258);
+  --muted-foreground: oklch(0.46 0.03 262);
+  --brand: oklch(0.45 0.19 266);
+  --brand-ink: oklch(1 0 0);
+  --brand-soft: oklch(0.45 0.19 266 / 0.09);
+  --zap: oklch(0.62 0.15 62);
+  --zap-soft: oklch(0.8 0.15 80 / 0.2);
+  --bad: oklch(0.53 0.2 27);
+  --good: oklch(0.47 0.12 155);
+  --lift: 0 1px 2px oklch(0.22 0.03 265 / 0.07), 0 8px 24px oklch(0.22 0.03 265 / 0.07);
+
+  --card: var(--background);
+  --card-foreground: var(--foreground);
+  --popover: var(--background);
+  --popover-foreground: var(--foreground);
+  --primary: var(--brand);
+  --primary-foreground: var(--brand-ink);
+  --secondary: var(--surface);
+  --secondary-foreground: var(--foreground);
+  --muted: var(--sunk);
+  --accent: var(--sunk);
+  --accent-foreground: var(--foreground);
+  --destructive: var(--bad);
+  --border: var(--line);
+  --input: var(--line);
+  --ring: var(--brand);
+  --radius: 0.55rem;
+
+  --sq-light: oklch(0.935 0.018 220);
+  --sq-dark: oklch(0.7 0.06 228);
+  --sq-coord-on-light: oklch(0.52 0.06 228);
+  --sq-coord-on-dark: oklch(0.96 0.015 220);
+  --sq-last: oklch(0.87 0.13 92 / 0.62);
+  --sq-sel: oklch(0.45 0.19 266 / 0.38);
+  --sq-pre: oklch(0.5 0.08 290 / 0.38);
+  --sq-over: oklch(0.22 0.03 265 / 0.16);
+  --dot: oklch(0.22 0.03 265 / 0.26);
+  --hatch: oklch(0.22 0.03 265 / 0.62);
+  color-scheme: light;
+}
+[data-theme="dark"] {
+  --background: oklch(0.165 0.012 262);
+  --foreground: oklch(0.94 0.008 255);
+  --surface: oklch(0.205 0.016 262);
+  --sunk: oklch(0.135 0.012 262);
+  --line: oklch(0.3 0.02 262);
+  --muted-foreground: oklch(0.73 0.02 258);
+  --brand: oklch(0.76 0.12 262);
+  --brand-ink: oklch(0.16 0.03 265);
+  --brand-soft: oklch(0.76 0.12 262 / 0.13);
+  --zap: oklch(0.82 0.15 82);
+  --zap-soft: oklch(0.82 0.15 82 / 0.14);
+  --bad: oklch(0.7 0.17 25);
+  --good: oklch(0.76 0.13 155);
+  --lift: 0 1px 2px oklch(0 0 0 / 0.3), 0 8px 24px oklch(0 0 0 / 0.25);
+  --sq-light: oklch(0.8 0.025 222);
+  --sq-dark: oklch(0.54 0.055 232);
+  --sq-coord-on-light: oklch(0.42 0.055 232);
+  --sq-coord-on-dark: oklch(0.88 0.02 222);
+  --sq-last: oklch(0.84 0.13 92 / 0.5);
+  --sq-sel: oklch(0.76 0.12 262 / 0.5);
+  --sq-over: oklch(1 0 0 / 0.16);
+  --dot: oklch(0.16 0.02 262 / 0.36);
+  --hatch: oklch(0.2 0.02 262 / 0.7);
+  color-scheme: dark;
+}
+
+/* Board themes: Altitude is the default above; Glacier is the board the app had before. */
+[data-board="glacier"] {
+  --sq-light: oklch(0.915 0.022 215);
+  --sq-dark: oklch(0.645 0.052 228);
+  --sq-sel: oklch(0.6 0.11 172 / 0.55);
+}
+[data-board="glacier"][data-theme="dark"] {
+  --sq-light: oklch(0.8 0.028 215);
+  --sq-dark: oklch(0.56 0.05 228);
+}
+[data-board="diagram"] {
+  --sq-light: oklch(0.99 0 0);
+  --sq-dark: oklch(0.99 0 0);
+  --sq-coord-on-light: oklch(0.4 0.02 262);
+  --sq-coord-on-dark: oklch(0.4 0.02 262);
+}
+[data-board="diagram"][data-theme="dark"] {
+  --sq-light: oklch(0.87 0.006 258);
+  --sq-dark: oklch(0.87 0.006 258);
+}
+[data-board="dusk"] {
+  --sq-light: oklch(0.915 0.02 318);
+  --sq-dark: oklch(0.66 0.06 305);
+  --sq-coord-on-light: oklch(0.5 0.06 305);
+  --sq-coord-on-dark: oklch(0.95 0.015 318);
+}
+[data-board="dusk"][data-theme="dark"] {
+  --sq-light: oklch(0.78 0.028 316);
+  --sq-dark: oklch(0.5 0.06 303);
+  --sq-coord-on-light: oklch(0.4 0.05 303);
+  --sq-coord-on-dark: oklch(0.88 0.02 316);
+}
+
+@theme inline {
+  --font-sans: "Atkinson Next", system-ui, sans-serif;
+  --font-mono: "Atkinson Mono", ui-monospace, monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-surface: var(--surface);
+  --color-sunk: var(--sunk);
+  --color-line: var(--line);
+  --color-brand: var(--brand);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-soft: var(--brand-soft);
+  --color-zap: var(--zap);
+  --color-zap-soft: var(--zap-soft);
+  --color-bad: var(--bad);
+  --color-good: var(--good);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --shadow-lift: var(--lift);
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    @apply min-h-dvh bg-background font-sans text-[15px] leading-[1.45] text-foreground;
+  }
+  :focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
