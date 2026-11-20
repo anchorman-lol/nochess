@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { BRAND } from "@nochess/ui/brand";
 import { Icon } from "@nochess/ui/components/icon";
 import { Mark, Wordmark } from "@nochess/ui/components/logo";
@@ -9,7 +10,7 @@ import { Board } from "../components/board.tsx";
 import { Player, Signed } from "../components/common.tsx";
 import { Signatures } from "../components/table.tsx";
 import { position } from "../lib/board.ts";
-import { gameHref, plural, seekHref, terms } from "../lib/format.ts";
+import { gameLink, plural, seekLink, terms } from "../lib/format.ts";
 
 /** Morphy's Opera Game, Paris 1858: seventeen moves, and every one of them worth watching. */
 const OPERA =
@@ -40,12 +41,12 @@ export function Landing({ model }: { model: LandingModel }) {
             thanks.
           </span>
           <nav className="ml-auto flex gap-5 font-semibold text-foreground" aria-label="Footer">
-            <a href="#/play" className="hover:text-brand">
+            <Link to="/play" className="hover:text-brand">
               Play
-            </a>
-            <a href="#/settings" className="hover:text-brand">
+            </Link>
+            <Link to="/settings" className="hover:text-brand">
               Settings
-            </a>
+            </Link>
           </nav>
         </div>
       </footer>
@@ -93,8 +94,8 @@ function Hero() {
             {BRAND.promise}
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <a
-              href="#/play"
+            <Link
+              to="/play"
               className={cn(
                 cta,
                 "bg-white text-[oklch(0.36_0.17_266)] hover:bg-[oklch(0.95_0.03_266)]",
@@ -102,14 +103,15 @@ function Hero() {
               data-testid="cta-play"
             >
               Play now
-            </a>
-            <a
-              href="#/about#how"
+            </Link>
+            <Link
+              to="/about"
+              hash="how"
               data-testid="cta-how"
               className={cn(cta, "border border-white/40 text-white hover:bg-white/10")}
             >
               How signing works
-            </a>
+            </Link>
           </div>
           <p className="mt-6 text-[0.95rem] text-[oklch(0.9_0.05_266)]">
             No sign-up. Your browser makes a key and the game starts.
@@ -249,8 +251,8 @@ function Boards({ model }: { model: LandingModel }) {
             {model.live.length ? (
               model.live.map((game) => (
                 <li key={game.gameId} className="border-b border-line">
-                  <a
-                    href={seekHref(game)}
+                  <Link
+                    {...seekLink(game)}
                     className="flex items-center gap-3 py-3 hover:text-brand"
                   >
                     <Icon name="eye" className="text-muted-foreground" />
@@ -262,15 +264,15 @@ function Boards({ model }: { model: LandingModel }) {
                     <span className="text-[0.87rem] text-muted-foreground">
                       {terms(game.tc, game.rated)}
                     </span>
-                  </a>
+                  </Link>
                 </li>
               ))
             ) : (
               <li className="border-b border-line py-3 text-muted-foreground">
                 Quiet right now.{" "}
-                <a href="#/play" className="font-semibold text-brand">
+                <Link to="/play" className="font-semibold text-brand">
                   Open a seek
-                </a>{" "}
+                </Link>{" "}
                 and the next game is yours.
               </li>
             )}
@@ -287,8 +289,8 @@ function Boards({ model }: { model: LandingModel }) {
             {model.results.length ? (
               model.results.map((v) => (
                 <li key={v.addr} className="border-b border-line">
-                  <a
-                    href={gameHref(v.addr)}
+                  <Link
+                    {...gameLink(v.addr)}
                     className="flex items-center gap-3 py-3 hover:text-brand"
                   >
                     <span className="min-w-0 flex-1 truncate">
@@ -297,7 +299,7 @@ function Boards({ model }: { model: LandingModel }) {
                       <Player pubkey={v.players[1]} />
                     </span>
                     <span className="text-[0.87rem] text-muted-foreground">{v.termination}</span>
-                  </a>
+                  </Link>
                 </li>
               ))
             ) : (
@@ -382,15 +384,15 @@ function Close() {
         <h2 className="max-w-[22ch] min-w-[13ch] flex-1 text-[clamp(1.7rem,3.2vw,2.5rem)] leading-[1.1] font-extrabold tracking-[-0.025em] text-balance">
           Your key is your seat at the board.
         </h2>
-        <a
-          href="#/play"
+        <Link
+          to="/play"
           className={cn(
             cta,
             "bg-brand text-brand-ink hover:bg-brand/90 dark:bg-[oklch(0.45_0.19_266)] dark:text-white",
           )}
         >
           Play now
-        </a>
+        </Link>
       </div>
     </section>
   );

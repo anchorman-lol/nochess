@@ -1,16 +1,17 @@
+import { Link, type LinkProps } from "@tanstack/react-router";
 import type { Verdict } from "@nochess/core/game/archive.ts";
 import { type Speed, speedOf } from "@nochess/core/game/events.ts";
 import type { Rating } from "@nochess/core/game/glicko.ts";
 import { Icon } from "@nochess/ui/components/icon";
 import { useEffect, useRef } from "react";
 import { FIRST_PAGE, type Seek } from "../app/store.ts";
-import { gameHref, plural, seekHref, tcLabel, terms } from "../lib/format.ts";
+import { gameLink, plural, seekLink, tcLabel, terms } from "../lib/format.ts";
 import { Player, PlayerLink, RatingOf, ShowRating } from "./common.tsx";
 
 export function SeekRow({ seek }: { seek: Seek }) {
   return (
     <li>
-      <a href={seekHref(seek)} className="flex min-w-0 flex-1 items-center gap-3 hover:text-brand">
+      <Link {...seekLink(seek)} className="flex min-w-0 flex-1 items-center gap-3 hover:text-brand">
         <span className="flex min-w-0 flex-1 items-center gap-2 truncate font-semibold">
           <Player pubkey={seek.host} />
           <RatingOf pubkey={seek.host} speed={speedOf(seek.tc)} />
@@ -19,7 +20,7 @@ export function SeekRow({ seek }: { seek: Seek }) {
         <span className="w-24 text-right text-[0.9rem] text-muted-foreground">
           {seek.forMe ? "challenges you" : seek.rated ? "rated" : "casual"}
         </span>
-      </a>
+      </Link>
     </li>
   );
 }
@@ -27,7 +28,7 @@ export function SeekRow({ seek }: { seek: Seek }) {
 export function LiveRow({ game }: { game: Seek & { guest: string } }) {
   return (
     <li>
-      <a href={seekHref(game)} className="flex min-w-0 flex-1 items-center gap-3 hover:text-brand">
+      <Link {...seekLink(game)} className="flex min-w-0 flex-1 items-center gap-3 hover:text-brand">
         <Icon name="eye" className="text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate font-semibold">
           <Player pubkey={game.host} />{" "}
@@ -37,7 +38,7 @@ export function LiveRow({ game }: { game: Seek & { guest: string } }) {
         <span className="text-[0.9rem] text-muted-foreground max-sm:hidden">
           {terms(game.tc, game.rated)}
         </span>
-      </a>
+      </Link>
     </li>
   );
 }
@@ -45,8 +46,8 @@ export function LiveRow({ game }: { game: Seek & { guest: string } }) {
 export function ResultRow({ verdict }: { verdict: Verdict }) {
   return (
     <li>
-      <a
-        href={gameHref(verdict.addr)}
+      <Link
+        {...gameLink(verdict.addr)}
         className="flex min-w-0 flex-1 items-center gap-3 hover:text-brand"
       >
         <span className="min-w-0 flex-1 truncate">
@@ -59,7 +60,7 @@ export function ResultRow({ verdict }: { verdict: Verdict }) {
         <span className="text-[0.87rem] text-muted-foreground max-sm:hidden">
           {verdict.termination} · {terms(verdict.tc, verdict.rated)}
         </span>
-      </a>
+      </Link>
     </li>
   );
 }
@@ -88,16 +89,16 @@ export function RankRow({
 }
 
 /** The link from a list's first page to all of it, shown once there is more than that page. */
-export function ShowAll({ href, count }: { href: string; count: number }) {
+export function ShowAll({ count, ...link }: LinkProps & { count: number }) {
   if (count <= FIRST_PAGE) return null;
   return (
-    <a
-      href={href}
+    <Link
+      {...link}
       className="text-[0.87rem] font-semibold text-brand hover:underline"
       data-testid="show-all"
     >
       Show all
-    </a>
+    </Link>
   );
 }
 

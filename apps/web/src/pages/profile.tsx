@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { Icon } from "@nochess/ui/components/icon";
 import { cn } from "cn";
 import * as nip19 from "nostr-tools/nip19";
@@ -24,7 +25,7 @@ import {
 } from "../components/common.tsx";
 import { btn } from "../components/table.tsx";
 import { mute } from "../lib/settings.ts";
-import { gameHref, plural, satsTo, shortKey } from "../lib/format.ts";
+import { gameLink, plural, satsTo, shortKey } from "../lib/format.ts";
 import { ResultRow, ShowAll } from "../components/rows.tsx";
 
 export function ProfilePage({ model }: { model: ProfileModel }) {
@@ -154,7 +155,9 @@ export function ProfilePage({ model }: { model: ProfileModel }) {
           </Section>
           <Section
             title="Games"
-            aside={<ShowAll href={`#/player/${pubkey}/games`} count={model.games.length} />}
+            aside={
+              <ShowAll to="/player/$pubkey/games" params={{ pubkey }} count={model.games.length} />
+            }
           >
             <List className="results">
               {model.games.length ? (
@@ -175,9 +178,9 @@ export function ProfilePage({ model }: { model: ProfileModel }) {
                       <Zapped sats={zap.msat / 1000} /> from <Player pubkey={zap.from} />
                     </span>
                     {zap.addr && (
-                      <a className="text-[0.87rem] text-brand" href={gameHref(zap.addr)}>
+                      <Link className="text-[0.87rem] text-brand" {...gameLink(zap.addr)}>
                         for a game
-                      </a>
+                      </Link>
                     )}
                     {zap.comment && (
                       <span className="text-[0.87rem] text-muted-foreground">{zap.comment}</span>

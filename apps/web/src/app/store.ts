@@ -1,3 +1,4 @@
+import "../lib/run-migration.ts";
 import { audit, auditAll, type Verdict } from "@nochess/core/game/archive.ts";
 import { trusted, verify, withTrusted } from "@nochess/core/game/assertion.ts";
 import {
@@ -27,6 +28,7 @@ import {
 import { type Game, type Seat } from "@nochess/core/game/replay.ts";
 import { openGame, Table } from "@nochess/core/game/table.ts";
 import { Net, timed } from "@nochess/core/nostr/net.ts";
+import type { NavigateOptions } from "@tanstack/react-router";
 import type { Filter } from "nostr-tools/filter";
 import { payUrl } from "@nochess/core/zap/lnurl.ts";
 import type { Zap } from "@nochess/core/zap/zap.ts";
@@ -38,13 +40,12 @@ import { isPromotion, position, targets } from "../lib/board.ts";
 import { loadSettings, mute, saveSettings, type Settings } from "../lib/settings.ts";
 import { nextPage } from "../lib/paging.ts";
 import { soundFor } from "../lib/sound.ts";
-import { shortKey } from "../lib/format.ts";
+import { seekLink, shortKey } from "../lib/format.ts";
 import {
   followRelayHint,
   gameLink,
   importKey,
   loadSigner,
-  parseGameLink,
   parsePubkey,
   relayUrls,
   saveRelays,
@@ -741,7 +742,7 @@ function lobby(): Route {
       table.close();
       own.delete(gameId);
       if (tagValue(lobbies.get(address(me, gameId))!, "status") === "playing")
-        location.hash = `#/${me}/${gameId}`;
+        nav.go(seekLink({ host: me, gameId }));
     }
   }
 
@@ -755,7 +756,7 @@ function lobby(): Route {
           ? WAIT.paidBot
           : WAIT.bot;
     openGame(net, localStorage, { tc, rated }, challenged, wait).then(
-      (gameId) => (location.hash = `#/${me}/${gameId}`),
+      (gameId) => nav.go(seekLink({ host: me, gameId })),
       (reason) => {
         error = `The relay didn't take the game: ${reason instanceof Error ? reason.message : reason}`;
         paint();
@@ -811,7 +812,7 @@ function lobby(): Route {
         const waiting = games().seeks.find(
           (seek) => seek.tc === tc && seek.rated === rated && !seek.mine && !seek.forMe,
         );
-        if (waiting) location.hash = `#/${waiting.host}/${waiting.gameId}`;
+        if (waiting) nav.go(seekLink(waiting));
         else {
           const seek = (pending = { tc, cancel: false });
           openGame(net, localStorage, { tc, rated }).then(
@@ -911,7 +912,8 @@ function game(host: string, gameId: string): Route {
       paint();
     },
   );
-  const shareUrl = () => location.origin + location.pathname + gameLink(host, gameId, net.url);
+  const shareUrl = () =>
+    location.origin + import.meta.env.BASE_URL + gameLink(host, gameId, net.url);
   const play: Play = {
     sans: () => table.game.sans,
     seat: () => table.seat(),
@@ -1002,7 +1004,7 @@ function game(host: string, gameId: string): Route {
         });
       else if (action === "cancel-seek") {
         table.cancel();
-        location.hash = "#/play";
+        nav.go({ to: "/play" });
       } else if (action === "join") {
         joining = true;
         table.join();
@@ -1182,39 +1184,44 @@ function computer(level: number): Route {
 
 const simple = (name: "settings"): Route => ({ name, view: () => null, act() {}, leave() {} });
 
-export function navigate() {
+export type Page =
+  | { name: "home" | "landing" | "lobby" | "settings" }
+  | { name: "game"; host: string; gameId: string; relay?: string }
+  | { name: "profile"; pubkey: string }
+  | { name: "list"; kind: ListKind; pubkey?: string }
+  | { name: "computer"; level: number };
+
+/** Moves to another page; the router sets it. */
+export const nav = { go: (_to: NavigateOptions) => {} };
+
+/** Leaves the page shown and opens another, scrolled to `anchor` if there is one. */
+export function enter(page: Page, anchor = "") {
   route?.leave();
   zap.act("zap-close");
   view = fresh();
-  const [hash, anchor] = location.hash.split(/(?!^)#/);
-  const level = Number(hash.match(/^#\/computer\/([1-8])$/)?.[1]);
-  const { host, gameId, relay } = parseGameLink(hash);
-  if (relay && /^wss?:\/\//.test(relay) && relay !== net.url) {
-    followRelayHint(relay);
+  if (
+    page.name === "game" &&
+    page.relay &&
+    /^wss?:\/\//.test(page.relay) &&
+    page.relay !== net.url
+  ) {
+    followRelayHint(page.relay);
     return location.reload();
   }
-  const [, shown, all] = hash.match(/^#\/player\/([0-9a-f]{64})(\/games)?$/) ?? [];
-  const [, listed] = hash.match(/^#\/(games(?:\/live|\/open)?|leaderboard)$/) ?? [];
-  const kinds: Record<string, ListKind> = {
-    games: "games",
-    "games/live": "live",
-    "games/open": "open",
-    leaderboard: "leaderboard",
-  };
-  const home = hash === "" || hash === "#" || hash === "#/";
-  route = level
-    ? computer(level)
-    : all
-      ? list("player", shown)
-      : listed
-        ? list(kinds[listed])
-        : shown
-          ? profile(shown)
-          : host
-            ? game(host, gameId)
-            : hash === "#/settings"
+  const name =
+    page.name === "home" ? (localStorage.getItem(WELCOMED) ? "lobby" : "landing") : page.name;
+  route =
+    page.name === "computer"
+      ? computer(page.level)
+      : page.name === "list"
+        ? list(page.kind, page.pubkey)
+        : page.name === "profile"
+          ? profile(page.pubkey)
+          : page.name === "game"
+            ? game(page.host, page.gameId)
+            : name === "settings"
               ? simple("settings")
-              : hash === "#/about" || (home && !localStorage.getItem(WELCOMED))
+              : name === "landing"
                 ? landing()
                 : lobby();
   window.scrollTo(0, 0);

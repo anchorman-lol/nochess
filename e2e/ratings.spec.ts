@@ -11,7 +11,7 @@ test("a trusted rater's published rating replaces the local one and verifies whe
   await expect(black.getByTestId("signed")).toContainText("both players");
   await black.getByTestId("home").click();
   await expect(black.getByTestId("rating-source")).toContainText("computed in your browser from");
-  await black.locator('.you a[href^="#/player/"]').click();
+  await black.locator('.you a[href^="/player/"]').click();
   await expect(black.getByTestId("rated-by")).toContainText("Computed in this browser");
   await expect(black.getByTestId("verify")).toHaveCount(0);
 

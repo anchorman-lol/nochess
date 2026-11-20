@@ -1,8 +1,24 @@
+import "../app.css";
+import { Outlet, useRouter } from "@tanstack/react-router";
 import { domAnimation, LazyMotion, MotionConfig } from "motion/react";
 import { lazy, Suspense, useEffect, useSyncExternalStore } from "react";
 import { Shell } from "../components/shell.tsx";
 import { ZapSheet } from "../components/zap-sheet.tsx";
-import { board, getVersion, route, subscribe } from "./store.ts";
+import {
+  applySettings,
+  board,
+  getVersion,
+  nav,
+  route,
+  setSettings,
+  settings,
+  subscribe,
+} from "./store.ts";
+
+applySettings();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applySettings);
+if (settings.music)
+  window.addEventListener("pointerdown", () => setSettings(settings), { once: true });
 
 const ComputerPage = lazy(() =>
   import("../pages/computer.tsx").then((m) => ({ default: m.ComputerPage })),
@@ -29,6 +45,8 @@ const KEYS: Record<string, string> = {
 
 export function App() {
   useSyncExternalStore(subscribe, getVersion);
+  const router = useRouter();
+  nav.go = (to) => void router.navigate(to);
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
@@ -49,7 +67,7 @@ export function App() {
       <MotionConfig reducedMotion="user">
         <Shell>
           <Suspense>
-            <Page />
+            <Outlet />
           </Suspense>
         </Shell>
         <ZapSheet />
@@ -58,7 +76,9 @@ export function App() {
   );
 }
 
-function Page() {
+/** Every route's component: the page `enter()` opened. */
+export function Page() {
+  useSyncExternalStore(subscribe, getVersion);
   switch (route?.name) {
     case "landing":
       return <Landing model={route.view()} />;

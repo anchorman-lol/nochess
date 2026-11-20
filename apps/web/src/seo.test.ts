@@ -1,21 +1,22 @@
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { head, LD, SITE } from "./app/head.ts";
 
-const SITE = "https://anchorman-lol.github.io/nochess/";
-const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const pub = (file: string) => new URL(`../public/${file}`, import.meta.url);
 
 const meta = (key: string) =>
-  html.match(new RegExp(`<meta\\s+(?:property|name)="${key}"\\s+content="([^"]*)"`))?.[1];
+  head.meta.find((tag) => ("property" in tag ? tag.property : "name" in tag && tag.name) === key)
+    ?.content;
 
 function pngSize(file: string) {
   const png = readFileSync(pub(file));
   return [png.readUInt32BE(16), png.readUInt32BE(20)];
 }
 
-describe("index.html for link previews", () => {
+describe("the head for link previews", () => {
   it("names the canonical page and the card by absolute URL", () => {
-    expect(html).toContain(`<link rel="canonical" href="${SITE}" />`);
+    expect(SITE).toBe("https://anchorman-lol.github.io/nochess/");
+    expect(head.links).toContainEqual({ rel: "canonical", href: SITE });
     expect(meta("og:url")).toBe(SITE);
     expect(meta("og:image")).toBe(`${SITE}og.png`);
     expect(meta("twitter:image")).toBe(`${SITE}og.png`);
@@ -30,10 +31,9 @@ describe("index.html for link previews", () => {
   });
 
   it("carries JSON-LD that parses", () => {
-    const ld = JSON.parse(
-      html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)![1],
-    );
-    expect(ld.url).toBe(SITE);
+    const ld = head.scripts.find((script) => "type" in script)!;
+    expect(JSON.parse(ld.children)).toEqual(LD);
+    expect(LD.url).toBe(SITE);
   });
 });
 

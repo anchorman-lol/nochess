@@ -43,7 +43,7 @@ The tools read `NOCHESS_RELAY` (default `ws://127.0.0.1:7778`) and keep their ke
 - Zaps (NIP-57) to a player, or to one or both players of a game, with the receipts shown on the cards. Paid by WebLN, Nostr Wallet Connect, or as an invoice with a QR code.
 - Bots and reviewers that charge per game, and act only on a receipt they have verified.
 - Settings kept in the browser: theme, four boards (Altitude, Diagram, Dusk, Glacier), two piece sets, game sounds with a volume, ambient music (off by default) and chat.
-- A landing page at `#/about`, shown at `#/` until the first visit to the lobby (`#/play`).
+- A landing page at `/about`, shown at `/` until the first visit to the lobby (`/play`).
 
 ## Zaps and fees
 
@@ -64,7 +64,7 @@ The mock provider and the play-money wallet exist only where `VITE_DEV_WALLET` i
 
 ## Deploy
 
-Every push to `main` builds the app and deploys it to GitHub Pages (`.github/workflows/pages.yml`); `gh workflow run pages.yml` redeploys `main` by hand. The build takes its settings only from `apps/web/.env.production`, and CI runs no tests. Asset paths are relative and routes are hash-based, so the same build works under any path.
+Every push to `main` builds the app and deploys it to GitHub Pages (`.github/workflows/pages.yml`); `gh workflow run pages.yml` redeploys `main` by hand. The build takes its settings only from `apps/web/.env.production`, and CI runs no tests. The app is TanStack Start in SPA mode: the build writes static files under `/nochess/` to `apps/web/dist/client`, with the HTML shell also as `404.html`, so GitHub Pages serves it for every path. Links from before real URLs (`#/play`, `#/<naddr>`) redirect to the same page's path.
 
 `deploy/services.sh` runs the rater (`--watch`) and the paid reviewer (`--serve`) as systemd services `nochess@rater` and `nochess@reviewer` on a Debian host, with their settings in `deploy/*.env`; `STOCKFISH` points the tools at a native engine instead of the WASM build.
 
@@ -74,7 +74,7 @@ How it works, the event kinds, and what the relay still has to enforce: [docs/DE
 
 A pnpm workspace.
 
-- `apps/web/` the web client: React and Vite. `src/app/store.ts` holds the routes and their state, `src/pages/` and `src/components/` render them, `src/lib/` has settings, sounds and board helpers, `src/chat/` the chat rules.
+- `apps/web/` the web client: React, Vite and TanStack Start. `src/routes/` has the file routes, which validate their params and open a page in `src/app/store.ts`, which holds each page's state, `src/pages/` and `src/components/` render them, `src/lib/` has settings, sounds and board helpers, `src/chat/` the chat rules.
 - `packages/core/` everything that isn't UI, shared by the client and the tools: `game/` the rules as pure functions (`replay`, `archive`, `glicko`, `review`) and `Table`, one game from a participant's side; `nostr/` the relay connection; `zap/` receipt validation, splits, fee gating and the LNURL client; `engine/` a UCI wrapper for Stockfish.
 - `packages/ui/` shadcn/ui components (base-ui), the Tailwind CSS v4 theme with the brand's OKLCH tokens, the logo, and `brand.ts`, the one place the product's name lives. Protocol identifiers (the `nochess` topic tag, `nochess:` storage keys, `NOCHESS_` env vars, the `@nochess/` scope) don't follow it: changing them splits the app from its events and stored keys.
 - `tools/` the bot account, reviewer, rater and the mock Lightning provider

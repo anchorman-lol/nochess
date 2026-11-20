@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { parseTc, speedOf } from "@nochess/core/game/events.ts";
 import { type Seat, turnOf } from "@nochess/core/game/replay.ts";
 import { Icon } from "@nochess/ui/components/icon";
@@ -263,9 +264,9 @@ function Finished({ model }: { model: GameModel }) {
         </>
       )}
       <div className="grid grid-cols-2 gap-2">
-        <a className={cn(btn, btnPrimary)} href="#/play">
+        <Link className={cn(btn, btnPrimary)} to="/play">
           New game
-        </a>
+        </Link>
       </div>
       <GameZaps model={model} />
       {model.reviewers.map((reviewer) =>
