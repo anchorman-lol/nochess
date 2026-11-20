@@ -222,8 +222,19 @@ export const build = {
       ["expiration", String(now + STATUS_TTL)],
     ],
   }),
-  /** Tag order is fixed: an archive rebuilds this event from the SAN, the time and the signature. */
-  move: (addr: string, ply: number, prev: string, san: string, fen: string, now: number) => ({
+  /**
+   * Tag order is fixed: an archive rebuilds this event from the SAN, the time and the signature.
+   * `p` names the opponent's main key, so other clients can notify them that it is their turn.
+   */
+  move: (
+    addr: string,
+    ply: number,
+    prev: string,
+    san: string,
+    fen: string,
+    now: number,
+    opponent?: string,
+  ) => ({
     kind: KIND.move,
     created_at: now,
     content: san,
@@ -232,6 +243,7 @@ export const build = {
       ["ply", String(ply)],
       ["e", prev],
       ["fen", fen],
+      ...(opponent ? [["p", opponent]] : []),
     ],
   }),
   /** `ply` is the number of moves played when the action was taken. */

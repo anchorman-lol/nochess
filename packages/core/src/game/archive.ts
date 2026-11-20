@@ -111,26 +111,35 @@ export function prove(note: GameEvent): GameEvent[] | null {
   try {
     const { head, sigs, extra }: Proof = JSON.parse(tagValue(note, "proof") ?? "");
     const [, host, gameId] = (tagValue(note, "a") ?? "").split(":");
-    const { sessions, addr, join } = replay(head, host, gameId);
+    const { sessions, players, addr, join } = replay(head, host, gameId);
     const chess = new Chess();
     chess.loadPgn(note.content);
     const sans = chess.history();
-    if (!sessions || !join || sans.length !== sigs.length) return null;
+    if (!sessions || !players || !join || sans.length !== sigs.length) return null;
     chess.reset();
     let prev = join.id;
     const moves = sans.map((san, i) => {
       const [at, sig] = sigs[i];
       const { after } = chess.move(san);
-      const move = {
-        ...build.move(addr, i + 1, prev, san, after, at),
-        pubkey: sessions[i % 2],
-        sig,
-      };
-      prev = getEventHash(move);
-      return { ...move, id: prev };
+      // Moves name the opponent since November 2026; older ones don't, so try both.
+      const [move] = [players[1 - (i % 2)], undefined]
+        .map((opponent) => {
+          const event = {
+            ...build.move(addr, i + 1, prev, san, after, at, opponent),
+            pubkey: sessions[i % 2],
+            sig,
+          };
+          return { ...event, id: getEventHash(event) };
+        })
+        .filter((event) => verifyEvent({ ...event } as Event));
+      if (!move) throw new Error(`move ${i + 1} doesn't verify`);
+      prev = move.id;
+      return move;
     });
-    const events = [...head, ...moves, ...extra];
-    return events.every((event) => verifyEvent({ ...event } as Event)) ? events : null;
+    const events = [...head, ...extra];
+    return events.every((event) => verifyEvent({ ...event } as Event))
+      ? [...head, ...moves, ...extra]
+      : null;
   } catch {
     return null;
   }
