@@ -78,15 +78,13 @@ export function saveRelays(list: string[]) {
   sessionStorage.removeItem(RELAY_STORE);
 }
 
-/** A link to a game that carries its relay, as a NIP-19 naddr. */
+/** The path of a game that carries its relay, as a NIP-19 naddr. */
 export const gameLink = (host: string, gameId: string, relay: string) =>
-  `#/${nip19.naddrEncode({ kind: KIND.game, pubkey: host, identifier: gameId, relays: [relay] })}`;
+  nip19.naddrEncode({ kind: KIND.game, pubkey: host, identifier: gameId, relays: [relay] });
 
-export function parseGameLink(hash: string): { host: string; gameId: string; relay?: string } {
-  const [, host, gameId] = hash.match(/^#\/([0-9a-f]{64})\/([0-9a-z-]{1,64})$/) ?? [];
-  if (host) return { host, gameId };
+export function parseGameLink(naddr: string): { host: string; gameId: string; relay?: string } {
   try {
-    const { type, data } = nip19.decode(hash.slice(2));
+    const { type, data } = nip19.decode(naddr);
     if (type === "naddr" && data.kind === KIND.game)
       return { host: data.pubkey, gameId: data.identifier, relay: data.relays?.[0] };
   } catch {

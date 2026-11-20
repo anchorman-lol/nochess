@@ -71,17 +71,17 @@ test("landing, lobby, game, settings, zaps, a paid bot and an invoice render wit
         });
       }
   };
-  await shoot("landing", "main h1", "/#/about");
-  await shoot("lobby", "[data-testid=relay-status]", "/#/play");
+  await shoot("landing", "main h1", "/about");
+  await shoot("lobby", "[data-testid=relay-status]", "/play");
   await shoot("game", "[data-testid=chat]", game);
-  await shoot("settings", "[data-testid=settings-chat]", "/#/settings");
-  await shoot("games", "[data-testid=list-rows]", "/#/games");
-  await shoot("leaderboard", "[data-testid=list-rows]", "/#/leaderboard");
+  await shoot("settings", "[data-testid=settings-chat]", "/settings");
+  await shoot("games", "[data-testid=list-rows]", "/games");
+  await shoot("leaderboard", "[data-testid=list-rows]", "/leaderboard");
 
   const [first] = await sitDown(watch(await player(browser)), watch(await player(browser)));
   await shoot("first-move", "[data-testid=first-move-countdown]", undefined, first);
 
-  await guest.goto("/#/settings#profile");
+  await guest.goto("/settings#profile");
   const editor = guest.getByTestId("profile-editor");
   await editor.getByLabel("Name", { exact: true }).fill("guest");
   await editor.getByLabel("Display name").fill("The Guest");
@@ -91,7 +91,7 @@ test("landing, lobby, game, settings, zaps, a paid bot and an invoice render wit
   await expect(editor.getByLabel("Lightning address")).toHaveValue(`guest@${ZAP_HOST}`);
   await shoot("profile", "[data-testid=profile-editor]", undefined, guest);
 
-  await white.goto("/#/play");
+  await white.goto("/play");
   await white.getByTestId("relay-status").click();
   await white.getByTestId("relay-add").fill("wss://relay.example/");
   await white.getByTestId("relay-add").press("Enter");
@@ -107,13 +107,13 @@ test("landing, lobby, game, settings, zaps, a paid bot and an invoice render wit
   await shoot("zap", "[data-testid=zap-close]", undefined, watcher);
 
   const payer = watch(await player(browser, undefined, { "nochess:devwallet": "off" }));
-  await payer.goto(`/#/player/${hostKey}`);
+  await payer.goto(`/player/${hostKey}`);
   await payer.getByTestId("zap").click();
   await zap(payer, 21, 0, ["21 sats"]);
   await shoot("invoice", ".invoice svg", undefined, payer);
 
   const challenger = watch(await player(browser));
-  await challenger.goto("/#/play");
+  await challenger.goto("/play");
   await challenger.getByRole("tab", { name: "A bot" }).click();
   const botRows = challenger.getByTestId("bots").locator("li");
   await expect(botRows.filter({ hasText: "Nochess bot" })).toBeVisible();
@@ -134,7 +134,7 @@ test("landing, lobby, game, settings, zaps, a paid bot and an invoice render wit
   const capped = watch(
     await player(browser, undefined, { "nochess:settings": JSON.stringify({ newBotCap: 10 }) }),
   );
-  await capped.goto("/#/play");
+  await capped.goto("/play");
   await capped.getByRole("tab", { name: "A bot" }).click();
   for (const width of [1440, 390]) {
     await capped.setViewportSize({ width, height: 844 });

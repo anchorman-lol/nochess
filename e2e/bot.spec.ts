@@ -57,7 +57,7 @@ async function playOut(page: Page) {
 
 test("a player challenges the bot account and plays a rated game to the end", async ({ page }) => {
   test.setTimeout(240_000);
-  await page.goto("/#/play");
+  await page.goto("/play");
   await page.getByRole("tab", { name: "A bot" }).click();
   const row = page.getByTestId("bots").locator("li", { hasText: "Nochess bot" });
   await expect(row.locator(".bot")).toHaveText("BOT");
@@ -86,7 +86,7 @@ test("a bot that restarts mid-game still answers the moves of the games it sits 
   page,
 }) => {
   test.setTimeout(120_000);
-  await page.goto("/#/play");
+  await page.goto("/play");
   await page.getByRole("tab", { name: "A bot" }).click();
   await page
     .getByTestId("bots")
@@ -110,9 +110,9 @@ test("a bot that restarts mid-game still answers the moves of the games it sits 
 test("a new bot priced over the cap says why it is blocked and links to the cap", async ({
   page,
 }) => {
-  await page.goto("/#/settings");
+  await page.goto("/settings");
   await page.getByTestId("settings-bot-cap").fill("10");
-  await page.goto("/#/play");
+  await page.goto("/play");
   await page.getByRole("tab", { name: "A bot" }).click();
   const challenge = page
     .getByTestId("bots")
@@ -129,11 +129,11 @@ test("a new bot priced over the cap says why it is blocked and links to the cap"
   await challenge.focus();
   await page.keyboard.press("Enter");
   await why.getByRole("link", { name: "Raise it in Settings" }).click();
-  await expect(page).toHaveURL(/#\/settings#bot-cap$/);
+  await expect(page).toHaveURL(/\/settings#bot-cap$/);
   const cap = page.getByTestId("settings-bot-cap");
   await expect(cap).toBeFocused();
   await cap.fill("100");
-  await page.goto("/#/play");
+  await page.goto("/play");
   await page.getByRole("tab", { name: "A bot" }).click();
   await expect(challenge).toBeEnabled();
 });
@@ -142,7 +142,7 @@ test("a bot with a price joins only once the challenge is paid, and then plays",
   page,
 }) => {
   test.setTimeout(240_000);
-  await page.goto("/#/play");
+  await page.goto("/play");
   await page.getByRole("tab", { name: "A bot" }).click();
   const row = page.getByTestId("bots").locator("li", { hasText: "Paybot" });
   await expect(row.getByTestId("challenge-bot")).toHaveText("Challenge · 21 sats");

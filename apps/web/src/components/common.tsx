@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import type { Speed } from "@nochess/core/game/events.ts";
 import { Icon } from "@nochess/ui/components/icon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nochess/ui/components/tooltip";
@@ -40,13 +41,14 @@ export function PlayerLink({
   tag?: boolean;
 }) {
   return (
-    <a
-      href={`#/player/${pubkey}`}
+    <Link
+      to="/player/$pubkey"
+      params={{ pubkey }}
       title={who(pubkey).name || shortKey(pubkey)}
       className={cn("truncate font-semibold hover:text-brand", className)}
     >
       <Player pubkey={pubkey} tag={tag} />
-    </a>
+    </Link>
   );
 }
 

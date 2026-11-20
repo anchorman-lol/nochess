@@ -125,7 +125,7 @@ Money in Nochess is a tip or a fee for a service, paid over Lightning as a NIP-5
 
 `readZap()` is the one check for a receipt, used by the browser, the bot and the reviewer. It follows NIP-57 appendix F: the receipt is signed by the `nostrPubkey` the recipient's own endpoint names, its `description` is a valid signed zap request, the invoice's description hash is the hash of that request and its amount is the request's, and the receipt's `p` and `a` are the request's. A receipt signed by any other key is a claim. Nobody's word is taken for a payment, including the paying client's.
 
-Zaps show on the player cards of a game (sats zapped for that game), under the board, and on a player's page (`#/player/<pubkey>`). A player with a key kept in the browser sets their lightning address on the home page, which publishes a kind 0 on this relay. A player signing with an extension keeps their own profile: Nochess reads it from this relay and does not write one.
+Zaps show on the player cards of a game (sats zapped for that game), under the board, and on a player's page (`/player/<pubkey>`). A player with a key kept in the browser sets their lightning address on the home page, which publishes a kind 0 on this relay. A player signing with an extension keeps their own profile: Nochess reads it from this relay and does not write one.
 
 ### The platform's share
 

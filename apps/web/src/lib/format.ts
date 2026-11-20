@@ -30,8 +30,12 @@ export const terms = (tc: string, rated: boolean) =>
 export const provisional = ({ rd }: Rating) => rd >= PROVISIONAL_RD;
 export const satsTo = (zaps: Zap[], pubkeys: string[]) =>
   zaps.reduce((sum, zap) => sum + (pubkeys.includes(zap.to) ? zap.msat : 0), 0) / 1000;
-export const gameHref = (addr: string) => `#/${addr.split(":").slice(1).join("/")}`;
-export const seekHref = (seek: { host: string; gameId: string }) => `#/${seek.host}/${seek.gameId}`;
+export const seekLink = ({ host, gameId }: { host: string; gameId: string }) =>
+  ({ to: "/$host/$gameId", params: { host, gameId } }) as const;
+export const gameLink = (addr: string) => {
+  const [, host, gameId] = addr.split(":");
+  return seekLink({ host, gameId });
+};
 
 export const outcomeText = (result: string, termination: string, noStart: number | null = null) =>
   noStart !== null

@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { type ListModel, route } from "../app/store.ts";
 import { List, None } from "../components/common.tsx";
 import { LiveRow, MoreOnScroll, RankRow, ResultRow, SeekRow } from "../components/rows.tsx";
@@ -5,9 +6,9 @@ import { shortKey } from "../lib/format.ts";
 
 const more = () => route?.act("more", {});
 const TABS = [
-  ["games", "#/games", "Finished"],
-  ["live", "#/games/live", "On the boards"],
-  ["open", "#/games/open", "Open seeks"],
+  ["games", "/games", "Finished"],
+  ["live", "/games/live", "On the boards"],
+  ["open", "/games/open", "Open seeks"],
 ] as const;
 
 /** A whole list on its own page: every game, the leaderboard, or one player's games. */
@@ -40,22 +41,26 @@ export function ListPage({ model }: { model: ListModel }) {
           className="flex gap-4 border-b border-line text-[0.92rem] font-semibold"
           aria-label="Which games"
         >
-          {TABS.map(([id, href, label]) => (
-            <a
+          {TABS.map(([id, to, label]) => (
+            <Link
               key={id}
-              href={href}
-              aria-current={kind === id ? "page" : undefined}
+              to={to}
+              activeOptions={{ exact: true }}
               className="-mb-px border-b-2 border-transparent py-2 text-muted-foreground aria-[current=page]:border-brand aria-[current=page]:text-foreground"
             >
               {label}
-            </a>
+            </Link>
           ))}
         </nav>
       )}
       {kind === "player" && (
-        <a href={`#/player/${model.pubkey}`} className="text-[0.92rem] font-semibold text-brand">
+        <Link
+          to="/player/$pubkey"
+          params={{ pubkey: model.pubkey }}
+          className="text-[0.92rem] font-semibold text-brand"
+        >
           Back to the player
-        </a>
+        </Link>
       )}
       {kind === "leaderboard" ? (
         <ol className="border-t border-line" data-testid="list-rows">

@@ -16,7 +16,7 @@ test("two players play a rated game to checkmate, watched, archived and audited"
   await expect(white.getByTestId("resign")).toBeVisible();
 
   const watcher = await player(browser);
-  await watcher.goto("/#/play");
+  await watcher.goto("/play");
   await watcher.getByTestId("live").locator("a").first().click();
   await expect(watcher.getByTestId("status")).toContainText("You are watching");
   await expect(watcher.getByTestId("moves")).toContainText("e5");
@@ -89,7 +89,7 @@ test("the player whose clock runs out loses on time", async ({ browser }) => {
 });
 
 test("the computer in the browser answers a move", async ({ page }) => {
-  await page.goto("/#/computer/1");
+  await page.goto("/computer/1");
   await page.getByTestId("sq-e2").click();
   await page.getByTestId("sq-e4").click();
   await expect(page.getByTestId("moves").locator('[data-ply="2"]')).toBeVisible();
@@ -99,7 +99,7 @@ test("the computer in the browser answers a move", async ({ page }) => {
 test("a piece is dragged to its square, and a drag to an illegal square changes nothing", async ({
   page,
 }) => {
-  await page.goto("/#/computer/1");
+  await page.goto("/computer/1");
   const board = page.getByTestId("board");
   const start = await board.getAttribute("data-fen");
   await page.getByTestId("sq-g1").dragTo(page.getByTestId("sq-g4"));
@@ -133,19 +133,19 @@ test("a seek is withdrawn from the waiting screen, its lobby row or its tile, an
   browser,
 }) => {
   const [host, guest] = [await player(browser), await player(browser)];
-  const seen = (hash: string) => guest.locator(`a[href="${hash}"]`);
-  await host.goto("/#/play");
-  await guest.goto("/#/play");
+  const seen = (path: string) => guest.locator(`a[href="${path}"]`);
+  await host.goto("/play");
+  await guest.goto("/play");
 
   await host.getByTestId("create").click();
   await expect(host.getByTestId("waiting")).toBeVisible();
   await expect(host.getByTestId("join-countdown")).toHaveText(/^(9:5\d|10:00)$/);
-  const first = new URL(host.url()).hash;
+  const first = new URL(host.url()).pathname;
   await expect(seen(first)).toBeVisible();
   await host.getByTestId("cancel-seek").click();
   await expect(host.getByTestId("seeks")).toBeVisible();
   await expect(seen(first)).toHaveCount(0);
-  await guest.goto(`/${first}`);
+  await guest.goto(first);
   await expect(guest.getByTestId("cancelled")).toHaveText("This seek was withdrawn.");
   await expect(guest.getByTestId("join")).toHaveCount(0);
   await guest.getByTestId("home").click();

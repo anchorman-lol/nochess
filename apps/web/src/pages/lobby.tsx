@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { parseTc, speedOf, WAIT } from "@nochess/core/game/events.ts";
 import { Icon } from "@nochess/ui/components/icon";
 import { Popover, PopoverContent, PopoverTrigger } from "@nochess/ui/components/popover";
@@ -19,7 +20,7 @@ import {
 import { Countdown } from "../components/clock.tsx";
 import { LiveRow, RankRow, ResultRow, SeekRow, ShowAll } from "../components/rows.tsx";
 import { field } from "../components/table.tsx";
-import { plural, seekHref, shortKey, tcLabel, terms, TIME_CONTROLS } from "../lib/format.ts";
+import { plural, seekLink, shortKey, tcLabel, terms, TIME_CONTROLS } from "../lib/format.ts";
 
 const ROWS = [
   { speed: "Blitz", note: "3 to 8 minutes", tcs: ["180+2", "300+0", "300+3"] },
@@ -189,13 +190,13 @@ function Toggle({
 function Seeks({ model }: { model: LobbyModel }) {
   const others = model.seeks.filter((seek) => !seek.mine);
   return (
-    <Section title="Open seeks" aside={<ShowAll href="#/games/open" count={others.length} />}>
+    <Section title="Open seeks" aside={<ShowAll to="/games/open" count={others.length} />}>
       <List data-testid="my-seeks" className="border-t-0">
         {model.seeks
           .filter((seek) => seek.mine)
           .map((seek) => (
             <li key={seek.gameId} className="first:border-t first:border-line">
-              <a href={seekHref(seek)} className="flex min-w-0 flex-1 items-center gap-3">
+              <Link {...seekLink(seek)} className="flex min-w-0 flex-1 items-center gap-3">
                 <span className="font-semibold">
                   Your{" "}
                   {seek.guest ? (
@@ -210,7 +211,7 @@ function Seeks({ model }: { model: LobbyModel }) {
                 <span className="text-[0.9rem] text-muted-foreground">
                   {terms(seek.tc, seek.rated)}
                 </span>
-              </a>
+              </Link>
               <button
                 type="button"
                 className={cn(button, "h-8 text-[0.87rem]")}
@@ -235,10 +236,7 @@ function Seeks({ model }: { model: LobbyModel }) {
 
 function Live({ model }: { model: LobbyModel }) {
   return (
-    <Section
-      title="On the boards"
-      aside={<ShowAll href="#/games/live" count={model.live.length} />}
-    >
+    <Section title="On the boards" aside={<ShowAll to="/games/live" count={model.live.length} />}>
       <List data-testid="live">
         {model.live.length ? (
           model.live.slice(0, FIRST_PAGE).map((game) => <LiveRow key={game.gameId} game={game} />)
@@ -259,7 +257,7 @@ function Results({ model }: { model: LobbyModel }) {
           {!model.checking && model.results.length > 0 && (
             <Signed className="text-[0.87rem]">Signed and checked</Signed>
           )}
-          <ShowAll href="#/games" count={model.results.length} />
+          <ShowAll to="/games" count={model.results.length} />
         </>
       }
     >
@@ -350,13 +348,14 @@ function StartPanel({ model }: { model: LobbyModel }) {
                 </label>
               ))}
             </div>
-            <a
+            <Link
               className={cn(button, primary)}
-              href={`#/computer/${model.level}`}
+              to="/computer/$level"
+              params={{ level: model.level }}
               data-testid="computer"
             >
               Play level {model.level}
-            </a>
+            </Link>
             <Hint>Stockfish in this browser. Casual, and nothing is published.</Hint>
           </>
         )}
@@ -415,9 +414,9 @@ function blocked(bot: Bot, model: LobbyModel): ReactNode {
     return (
       <>
         {plural(bot.sats, "sat")} is over your {model.newBotCap}-sat cap for bots without a record.{" "}
-        <a href="#/settings#bot-cap" className="font-semibold text-brand">
+        <Link to="/settings" hash="bot-cap" className="font-semibold text-brand">
           Raise it in Settings
-        </a>
+        </Link>
         .
       </>
     );
@@ -531,10 +530,7 @@ function Bots({ model }: { model: LobbyModel }) {
 
 function Ranks({ model }: { model: LobbyModel }) {
   return (
-    <Section
-      title="Leaderboard"
-      aside={<ShowAll href="#/leaderboard" count={model.ranks.length} />}
-    >
+    <Section title="Leaderboard" aside={<ShowAll to="/leaderboard" count={model.ranks.length} />}>
       <ol data-testid="ranks" className="border-t border-line">
         {model.ranks.length ? (
           model.ranks
@@ -571,20 +567,25 @@ function You({ model }: { model: LobbyModel }) {
         <Icon name="key" className="text-brand" />
         <span>
           You are{" "}
-          <a href={`#/player/${me}`} className="font-semibold hover:text-brand">
+          <Link
+            to="/player/$pubkey"
+            params={{ pubkey: me }}
+            className="font-semibold hover:text-brand"
+          >
             <code title={nip19.npubEncode(me)} data-testid="me" className="font-mono text-[0.9em]">
               {who(me).name || shortKey(me)}
             </code>
-          </a>
+          </Link>
           , signing with{" "}
           {source === "extension" ? "your Nostr extension" : "a key kept in this browser"}.{" "}
-          <a
-            href="#/settings#profile"
+          <Link
+            to="/settings"
+            hash="profile"
             className="font-semibold text-brand"
             data-testid="edit-profile"
           >
             Edit profile
-          </a>
+          </Link>
         </span>
       </p>
       {source !== "extension" && (
