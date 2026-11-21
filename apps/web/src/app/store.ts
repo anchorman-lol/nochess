@@ -8,6 +8,7 @@ import {
   type GameEvent,
   KIND,
   NOBODY,
+  priceOf,
   type Profile,
   profileOf,
   readStatus,
@@ -747,7 +748,7 @@ function lobby(): Route {
   }
 
   function start(challenged?: string) {
-    const fee = challenged ? who(challenged).fee?.msat : 0;
+    const fee = challenged ? priceOf(who(challenged)) : 0;
     const wait = !challenged
       ? WAIT.seek
       : !isBot(challenged)
@@ -783,7 +784,7 @@ function lobby(): Route {
         doubted,
         ranks: ranks(),
         bots: [...profiles.keys()].filter(isBot).map((pubkey) => {
-          const sats = (who(pubkey).fee?.msat ?? 0) / 1000;
+          const sats = priceOf(who(pubkey)) / 1000;
           const record = recordOf(pubkey);
           return {
             pubkey,
@@ -935,7 +936,7 @@ function game(host: string, gameId: string): Route {
       const players: string[] = game.players ?? [];
       const { board, moves } = boardOf(play);
       const zaps = zap.zaps(table.receipts).filter((z) => z.addr === table.addr);
-      const botFee = game.challenged ? who(game.challenged).fee : null;
+      const botFee = game.challenged ? priceOf(who(game.challenged)) : 0;
       const answered = new Set(table.labels.map((label) => tagValue(label, "e")));
       return {
         game,
@@ -954,8 +955,8 @@ function game(host: string, gameId: string): Route {
         fee:
           botFee && game.phase === "open" && host === me
             ? {
-                sats: botFee.msat / 1000,
-                paid: zaps.some((z) => z.to === game.challenged && z.msat >= botFee.msat),
+                sats: botFee / 1000,
+                paid: zaps.some((z) => z.to === game.challenged && z.msat >= botFee),
               }
             : null,
         reviewers:

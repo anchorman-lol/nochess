@@ -4,7 +4,14 @@ import { bech32 } from "@scure/base";
 import { makeZapReceipt } from "nostr-tools/nip57";
 import { finalizeEvent, generateSecretKey, getPublicKey } from "nostr-tools/pure";
 import { expect, test } from "vitest";
-import { covers, type GameEvent, hashHex, profileOf, type Template } from "../game/events.ts";
+import {
+  covers,
+  type GameEvent,
+  hashHex,
+  priceOf,
+  profileOf,
+  type Template,
+} from "../game/events.ts";
 import { decodeInvoice, fakeInvoice } from "./bolt11.ts";
 import { owed, payment } from "./fee.ts";
 import { payUrl } from "./lnurl.ts";
@@ -185,4 +192,14 @@ test("a profile's fee block says what a service charges and which games it takes
   expect(covers(human, { tc: "2d", rated: false })).toBe(true);
   const bank = { nochess: { role: "bank", price_msat: 1 } };
   expect(profileOf({ content: JSON.stringify(bank) }).fee).toBeNull();
+});
+
+test("a bot priced at 0 charges nothing, yet its fee block still says which games it takes", () => {
+  const nochess = { role: "bot", price_msat: 0, speeds: ["blitz"] };
+  const free = profileOf({ content: JSON.stringify({ bot: true, nochess }) });
+  expect(priceOf(free)).toBe(0);
+  expect(covers(free, { tc: "900+10", rated: true })).toBe(false);
+  expect(priceOf(profileOf({ content: '{"name":"H"}' }))).toBe(0);
+  const paid = { nochess: { role: "bot", price_msat: 21_000 } };
+  expect(priceOf(profileOf({ content: JSON.stringify(paid) }))).toBe(21_000);
 });

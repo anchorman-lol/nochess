@@ -320,6 +320,9 @@ export function profileOf(event: Pick<GameEvent, "content">): Profile {
   }
 }
 
+/** What a service charges a game, in millisats: 0 without a fee block or at a price of 0. */
+export const priceOf = ({ fee }: Profile) => fee?.msat ?? 0;
+
 /** Whether a service takes a game on these terms; one that names no fee block takes any. */
 export const covers = ({ fee }: Profile, { tc, rated }: Terms) =>
   !fee || ((fee.speeds?.includes(speedOf(tc) ?? "") ?? true) && (rated ? fee.rated : fee.casual));

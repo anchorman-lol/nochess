@@ -114,7 +114,7 @@ test("landing, lobby, game, settings, zaps, a paid bot and an invoice render wit
 
   const challenger = watch(await player(browser));
   await challenger.goto("/play");
-  await challenger.getByRole("tab", { name: "A bot" }).click();
+  await challenger.getByRole("tab", { name: "Bots" }).click();
   const botRows = challenger.getByTestId("bots").locator("li");
   await expect(botRows.filter({ hasText: "Nochess bot" })).toBeVisible();
   for (const width of [1440, 1024, 768, 390]) {
@@ -135,7 +135,7 @@ test("landing, lobby, game, settings, zaps, a paid bot and an invoice render wit
     await player(browser, undefined, { "nochess:settings": JSON.stringify({ newBotCap: 10 }) }),
   );
   await capped.goto("/play");
-  await capped.getByRole("tab", { name: "A bot" }).click();
+  await capped.getByRole("tab", { name: "Bots" }).click();
   for (const width of [1440, 390]) {
     await capped.setViewportSize({ width, height: 844 });
     await capped
