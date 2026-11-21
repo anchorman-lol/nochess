@@ -58,10 +58,10 @@ async function playOut(page: Page) {
 test("a player challenges the bot account and plays a rated game to the end", async ({ page }) => {
   test.setTimeout(240_000);
   await page.goto("/play");
-  await page.getByRole("tab", { name: "A bot" }).click();
+  await page.getByRole("tab", { name: "Bots" }).click();
   const row = page.getByTestId("bots").locator("li", { hasText: "Nochess bot" });
   await expect(row.locator(".bot")).toHaveText("BOT");
-  await expect(row.getByTestId("challenge-bot")).toHaveText("Challenge");
+  await expect(row.getByTestId("challenge-bot")).toHaveText("Challenge · Free");
   await row.getByTestId("bot-info").hover();
   await expect(page.getByTestId("bot-record")).toContainText(/new bot|answered/);
   await expect(page.getByTestId("bot-record")).toContainText("withdraws itself");
@@ -76,7 +76,7 @@ test("a player challenges the bot account and plays a rated game to the end", as
   await expect(page.getByTestId("ranks").locator("li", { hasText: "(you)" })).toContainText(
     "blitz",
   );
-  await page.getByRole("tab", { name: "A bot" }).click();
+  await page.getByRole("tab", { name: "Bots" }).click();
   await expect(page.getByTestId("bots").locator("li", { hasText: "Nochess bot" })).toContainText(
     /\d{4}/,
   );
@@ -87,7 +87,7 @@ test("a bot that restarts mid-game still answers the moves of the games it sits 
 }) => {
   test.setTimeout(120_000);
   await page.goto("/play");
-  await page.getByRole("tab", { name: "A bot" }).click();
+  await page.getByRole("tab", { name: "Bots" }).click();
   await page
     .getByTestId("bots")
     .locator("li", { hasText: "Nochess bot" })
@@ -113,7 +113,7 @@ test("a new bot priced over the cap says why it is blocked and links to the cap"
   await page.goto("/settings");
   await page.getByTestId("settings-bot-cap").fill("10");
   await page.goto("/play");
-  await page.getByRole("tab", { name: "A bot" }).click();
+  await page.getByRole("tab", { name: "Bots" }).click();
   const challenge = page
     .getByTestId("bots")
     .locator("li", { hasText: "Paybot" })
@@ -134,7 +134,7 @@ test("a new bot priced over the cap says why it is blocked and links to the cap"
   await expect(cap).toBeFocused();
   await cap.fill("100");
   await page.goto("/play");
-  await page.getByRole("tab", { name: "A bot" }).click();
+  await page.getByRole("tab", { name: "Bots" }).click();
   await expect(challenge).toBeEnabled();
 });
 
@@ -143,7 +143,7 @@ test("a bot with a price joins only once the challenge is paid, and then plays",
 }) => {
   test.setTimeout(240_000);
   await page.goto("/play");
-  await page.getByRole("tab", { name: "A bot" }).click();
+  await page.getByRole("tab", { name: "Bots" }).click();
   const row = page.getByTestId("bots").locator("li", { hasText: "Paybot" });
   await expect(row.getByTestId("challenge-bot")).toHaveText("Challenge · 21 sats");
   const time = (label: string) =>

@@ -20,7 +20,17 @@ import {
 import { Countdown } from "../components/clock.tsx";
 import { LiveRow, RankRow, ResultRow, SeekRow, ShowAll } from "../components/rows.tsx";
 import { field } from "../components/table.tsx";
-import { plural, seekLink, shortKey, tcLabel, terms, TIME_CONTROLS } from "../lib/format.ts";
+import {
+  botStatus,
+  plural,
+  price,
+  seekLink,
+  shortKey,
+  tcLabel,
+  terms,
+  TIME_CONTROLS,
+  unavailable,
+} from "../lib/format.ts";
 
 const ROWS = [
   { speed: "Blitz", note: "3 to 8 minutes", tcs: ["180+2", "300+0", "300+3"] },
@@ -282,9 +292,9 @@ function Results({ model }: { model: LobbyModel }) {
 function StartPanel({ model }: { model: LobbyModel }) {
   const [tab, setTab] = useState<"friend" | "computer" | "bot">("friend");
   const tabs = [
-    ["friend", "A friend"],
+    ["friend", "Friends"],
+    ["bot", "Bots"],
     ["computer", "Computer"],
-    ["bot", "A bot"],
   ] as const;
   return (
     <section className="overflow-hidden rounded-xl border border-line" aria-label="Start a game">
@@ -404,12 +414,9 @@ function Times({ model }: { model: LobbyModel }) {
 
 type Bot = LobbyModel["bots"][number];
 
-const botStatus = ({ online, free, max }: Bot["status"]) =>
-  !online ? "offline" : free ? `online, ${free} of ${max} free` : "online, every table busy";
-
 function blocked(bot: Bot, model: LobbyModel): ReactNode {
-  if (!bot.status.free)
-    return bot.status.online ? "Every table of this bot is busy." : "This bot is offline.";
+  const busy = unavailable(bot.status);
+  if (busy) return busy;
   if (bot.capped)
     return (
       <>
@@ -426,7 +433,7 @@ function blocked(bot: Bot, model: LobbyModel): ReactNode {
 /** A blocked challenge stays focusable and says why on hover, focus or tap. */
 function Challenge({ bot, model }: { bot: Bot; model: LobbyModel }) {
   const why = blocked(bot, model);
-  const label = `Challenge${bot.sats ? ` · ${plural(bot.sats, "sat")}` : ""}`;
+  const label = `Challenge · ${price(bot.sats)}`;
   const className = cn(button, "h-8 shrink-0 text-[0.87rem]");
   return why ? (
     <Popover>

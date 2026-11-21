@@ -18,6 +18,13 @@ export const TIME_CONTROLS = [
 
 export const shortKey = (pubkey: string) => `${nip19.npubEncode(pubkey).slice(0, 12)}…`;
 export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+export const price = (sats: number) => (sats ? plural(sats, "sat") : "Free");
+
+type BotStatus = { online: boolean; free: number; max: number };
+export const botStatus = ({ online, free, max }: BotStatus) =>
+  !online ? "offline" : free ? `online, ${free} of ${max} free` : "online, every table busy";
+export const unavailable = ({ online, free }: BotStatus) =>
+  free ? undefined : online ? "Every table of this bot is busy." : "This bot is offline.";
 
 export function tcLabel(tc: string): string {
   const clock = parseTc(tc);
